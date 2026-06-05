@@ -8,22 +8,22 @@ Versão do App: **2.0.1**
 
 ---
 
-## 🚀 Funcionalidades Principais
+## Funcionalidades Principais
 
-1. **📊 Painel & Status**:
+1. **Painel & Status**:
    * Monitoramento de hardware em tempo real (Uso de CPU, RAM e Disco C:).
    * Limpeza de arquivos temporários e caches de sistema de forma rápida.
    * Ativação automática do perfil de energia de "Alto Desempenho".
    * Desativação do agendador `WinSat` (reduz uso de disco em segundo plano) e da Inicialização Rápida.
 
-2. **🛠️ Correção & Reparos (Execução Assíncrona)**:
+2. **Correção & Reparos (Execução Assíncrona)**:
    * **DISM Restore Health**: Reparo da imagem do Windows.
    * **SFC Scannow**: Verificação e correção de arquivos corrompidos.
    * **CHKDSK Scheduler**: Agendamento de varredura física do disco no boot.
    * **Reset do Windows Update**: Parada de serviços, limpeza de cache (`SoftwareDistribution` e `catroot2`) e reinicialização automática do agente.
    * **Flush DNS**: Limpeza rápida do cache de rede.
 
-3. **🤖 Desativar IA & Privacidade (Debloat)**:
+3. **Desativar IA & Privacidade (Debloat)**:
    * Desativação do **Windows Copilot** via registro.
    * Desativação do **AI Recall** (Windows 11) via registro.
    * Desativação completa da **Cortana**.
@@ -33,7 +33,7 @@ Versão do App: **2.0.1**
    * Remoção automatizada do **Microsoft Edge** do sistema.
    * Bloqueio corporativo de novos perfis e Modo Convidado no **Google Chrome** via políticas de registro.
 
-4. **👥 Contas de Usuários (Agnóstico de Idioma)**:
+4. **Contas de Usuários (Agnóstico de Idioma)**:
    * Listagem de todas as contas locais.
    * Identificação de contas Administradoras usando SIDs universais (`S-1-5-32-544`).
    * **Alterar senha de qualquer usuário selecionado**.
@@ -41,13 +41,13 @@ Versão do App: **2.0.1**
    * Ativar ou Desativar contas locais.
    * Criar novos usuários ou Excluir permanentemente contas locais.
 
-5. **🌐 Ferramentas de Rede**:
+5. **Ferramentas de Rede**:
    * Alterar DNS de adaptadores de rede ativos para **Cloudflare (1.1.1.1)** ou **Google (8.8.8.8)**, ou restaurar para DHCP padrão.
    * Teste integrado de latência (Ping) com feedback visual.
 
 ---
 
-## 📦 Como Executar e Compilar
+## Como Executar e Compilar
 
 O arquivo **[ExecuteScript.bat](ExecuteScript.bat)** localizado na raiz é o inicializador unificado da ferramenta.
 
@@ -63,7 +63,7 @@ O arquivo **[ExecuteScript.bat](ExecuteScript.bat)** localizado na raiz é o ini
 
 ---
 
-## 🛠️ Requisitos e Tecnologias
+## Requisitos e Tecnologias
 * **Linguagem**: Python 3.x
 * **Bibliotecas nativas**: `tkinter` (para a GUI escura moderna), `winreg`, `subprocess`, `ctypes`.
 * **Dependências externas** (instaladas automaticamente na primeira compilação):
