@@ -510,6 +510,10 @@ function Restore-AllDefaults {
     reg delete "HKLM\SOFTWARE\Policies\Google\Chrome" /v BrowserGuestModeEnabled /f 2>&1 | Out-Null
     reg delete "HKLM\SOFTWARE\Policies\Google\Chrome" /v BrowserSignin /f 2>&1 | Out-Null
     reg delete "HKLM\SOFTWARE\Policies\Google\Chrome" /v AccountsRestriction /f 2>&1 | Out-Null
+    reg delete "HKCU\SOFTWARE\Policies\Google\Chrome" /v BrowserAddPersonEnabled /f 2>&1 | Out-Null
+    reg delete "HKCU\SOFTWARE\Policies\Google\Chrome" /v BrowserGuestModeEnabled /f 2>&1 | Out-Null
+    reg delete "HKCU\SOFTWARE\Policies\Google\Chrome" /v BrowserSignin /f 2>&1 | Out-Null
+    reg delete "HKCU\SOFTWARE\Policies\Google\Chrome" /v AccountsRestriction /f 2>&1 | Out-Null
 
     Write-Host "Restauracao de padroes concluida! Recomenda-se reiniciar o computador." -ForegroundColor Green
 }
