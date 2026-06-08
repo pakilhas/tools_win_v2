@@ -116,6 +116,8 @@ function Show-MaintenanceMenu {
     Write-Host "19. Otimizacoes Avançadas de Desempenho" -ForegroundColor White
     Write-Host "20. Desativar Servicos de Background" -ForegroundColor White
     Write-Host "21. Remover Microsoft Edge" -ForegroundColor White
+    Write-Host "22. Restaurar/Instalar Microsoft Edge" -ForegroundColor White
+    Write-Host "23. Reativar Todos os Recursos (Copilot, Telemetria, etc.)" -ForegroundColor White
     Write-Host "0. Voltar ao Menu Principal" -ForegroundColor Red
     Write-Host "=============================================" -ForegroundColor Green
 }
@@ -428,6 +430,90 @@ function Remove-Edge {
     Write-Host "Remocao do Microsoft Edge concluida com sucesso!" -ForegroundColor Green
 }
 
+function Restore-Edge {
+    Write-Host "Iniciando restauracao/instalacao do Microsoft Edge..." -ForegroundColor Yellow
+    
+    # 1. Remover registros de bloqueio
+    Write-Host "Removendo bloqueios de registro..." -ForegroundColor Yellow
+    reg delete "HKLM\SOFTWARE\Microsoft\EdgeUpdate" /v DoNotUpdateToEdgeWithChromium /f 2>&1 | Out-Null
+    reg delete "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v InstallDefault /f 2>&1 | Out-Null
+    reg delete "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v Install{56EB18C8-B163-40A0-8940-34185C667824} /f 2>&1 | Out-Null
+    
+    # 2. Tentar via winget
+    Write-Host "Tentando instalar via winget..." -ForegroundColor Yellow
+    $process = Start-Process winget -ArgumentList "install --id Microsoft.Edge --silent --accept-source-agreements --accept-package-agreements" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+    if ($process -ne $null -and $process.ExitCode -eq 0) {
+        Write-Host "Microsoft Edge instalado com sucesso via winget!" -ForegroundColor Green
+        return
+    }
+    
+    # 3. Fallback via download MSI
+    Write-Host "Winget falhou ou nao disponivel. Baixando MSI standalone..." -ForegroundColor Yellow
+    try {
+        $msiPath = "$env:TEMP\MicrosoftEdge.msi"
+        $url = "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/b498f395-5cb3-4876-b633-8a033c467a84/MicrosoftEdgeEnterpriseX64.msi"
+        
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        (New-Object System.Net.WebClient).DownloadFile($url, $msiPath)
+        
+        Write-Host "Instalando MSI..." -ForegroundColor Yellow
+        $installProc = Start-Process msiexec.exe -ArgumentList "/i $msiPath /qn /norestart" -Wait -PassThru
+        if ($installProc.ExitCode -eq 0) {
+            Write-Host "Microsoft Edge instalado com sucesso via MSI!" -ForegroundColor Green
+        } else {
+            Write-Host "Falha na instalacao do MSI. Codigo de saida: $($installProc.ExitCode)" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "Falha ao baixar/instalar Edge: $_" -ForegroundColor Red
+    }
+}
+
+function Restore-AllDefaults {
+    Write-Host "Iniciando restauracao dos recursos desativados para o padrao do Windows..." -ForegroundColor Yellow
+    
+    # 1. Reativar Copilot
+    Write-Host "Reativando Windows Copilot..." -ForegroundColor Yellow
+    reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" /v TurnOffWindowsCopilot /f 2>&1 | Out-Null
+    reg delete "HKCU\Software\Policies\Microsoft\Windows\WindowsCopilot" /v TurnOffWindowsCopilot /f 2>&1 | Out-Null
+
+    # 2. Reativar Recall
+    Write-Host "Reativando AI Recall..." -ForegroundColor Yellow
+    reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v AllowRecallEnablement /f 2>&1 | Out-Null
+    reg delete "HKCU\Software\Policies\Microsoft\Windows\WindowsAI" /v AllowRecallEnablement /f 2>&1 | Out-Null
+
+    # 3. Reativar Cortana
+    Write-Host "Reativando Cortana..." -ForegroundColor Yellow
+    reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v AllowCortana /f 2>&1 | Out-Null
+
+    # 4. Reativar Busca Web no Menu Iniciar
+    Write-Host "Reativando busca web no menu Iniciar..." -ForegroundColor Yellow
+    reg delete "HKCU\Software\Policies\Microsoft\Windows\Explorer" /v DisableSearchBoxSuggestions /f 2>&1 | Out-Null
+
+    # 5. Reativar Telemetria & Diagnósticos
+    Write-Host "Reativando Telemetria e Servicos de Diagnostico..." -ForegroundColor Yellow
+    reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection" /v AllowTelemetry /f 2>&1 | Out-Null
+    Set-Service -Name DiagTrack -StartupType Automatic -ErrorAction SilentlyContinue
+    Start-Service -Name DiagTrack -ErrorAction SilentlyContinue
+    Set-Service -Name dmwappushservice -StartupType Automatic -ErrorAction SilentlyContinue
+    Start-Service -Name dmwappushservice -ErrorAction SilentlyContinue
+
+    # 6. Reativar Serviços do Sistema
+    Write-Host "Reconfigurando servicos do sistema para o padrao..." -ForegroundColor Yellow
+    $services = @("Fax", "RemoteRegistry", "WalletService", "WMPNetworkSvc", "XblAuthManager", "XblGameSave", "XboxNetApiSvc")
+    foreach ($srv in $services) {
+        Set-Service -Name $srv -StartupType Manual -ErrorAction SilentlyContinue
+    }
+
+    # 7. Remover Restrições do Chrome
+    Write-Host "Removendo restricoes de politicas do Google Chrome..." -ForegroundColor Yellow
+    reg delete "HKLM\SOFTWARE\Policies\Google\Chrome" /v BrowserAddPersonEnabled /f 2>&1 | Out-Null
+    reg delete "HKLM\SOFTWARE\Policies\Google\Chrome" /v BrowserGuestModeEnabled /f 2>&1 | Out-Null
+    reg delete "HKLM\SOFTWARE\Policies\Google\Chrome" /v BrowserSignin /f 2>&1 | Out-Null
+    reg delete "HKLM\SOFTWARE\Policies\Google\Chrome" /v AccountsRestriction /f 2>&1 | Out-Null
+
+    Write-Host "Restauracao de padroes concluida! Recomenda-se reiniciar o computador." -ForegroundColor Green
+}
+
 function Clear-Memory {
     Write-Host "Iniciando otimizacao e limpeza da memoria RAM..." -ForegroundColor Yellow
     $processes = Get-Process
@@ -736,6 +822,14 @@ do {
                     }
                     '21' { 
                         Remove-Edge
+                        Pause
+                    }
+                    '22' { 
+                        Restore-Edge
+                        Pause
+                    }
+                    '23' { 
+                        Restore-AllDefaults
                         Pause
                     }
                     '0' { break }

@@ -266,10 +266,12 @@ class WindowsOptimizerApp:
         actions = [
             ("🧹 Limpar Arquivos Temporários", "Limpa cache de atualizações, pasta temp de usuários, logs e arquivos de despejo do Windows.", self.action_clean_temp),
             ("🚀 Liberar Memória RAM", "Libera a memória RAM do sistema forçando processos a liberarem memória física.", self.action_free_ram),
-            ("🌐 Remover Microsoft Edge", "Remove completamente o Edge do Windows 11 e bloqueia a sua reinstalação automática.", self.action_remove_edge),
+            ("❌ Remover Microsoft Edge", "Remove completamente o Edge do Windows 11 e bloqueia a sua reinstalação automática.", self.action_remove_edge),
+            ("➕ Restaurar Microsoft Edge", "Baixa e reinstala o Microsoft Edge no sistema e remove bloqueios de atualização.", self.action_restore_edge),
             ("⚡ Plano de Alto Desempenho", "Configura e ativa o perfil de energia de Alto Desempenho do Windows.", self.action_high_performance),
             ("🔇 Desativar WinSat", "Desativa o agendamento do WinSat (avaliação do sistema) que roda em segundo plano e consome disco/CPU.", self.action_disable_winsat),
             ("🚀 Otimizar Inicialização Rápida", "Desativa a hibernação híbrida que pode acumular lixo na inicialização e causar travamentos.", self.action_disable_fast_startup),
+            ("🌐 Flush DNS (Limpar Cache)", "Limpa o cache de DNS do resolvedor local para corrigir problemas de conexão de internet.", self.action_flush_dns),
         ]
 
         for i, (title, desc, func) in enumerate(actions):
@@ -462,7 +464,7 @@ class WindowsOptimizerApp:
     # ----------------------------------------------------
     def show_debloat_tab(self):
         lbl_title = tk.Label(
-            self.content_area, text="Desativar IA & Privacidade (Debloat)", fg=COLOR_TEXT, bg=COLOR_BG,
+            self.content_area, text="Gerenciador de IA, Privacidade & Debloat", fg=COLOR_TEXT, bg=COLOR_BG,
             font=('Segoe UI Semibold', 18), anchor='w'
         )
         lbl_title.pack(fill='x', pady=(0, 15))
@@ -471,37 +473,46 @@ class WindowsOptimizerApp:
         container.pack(fill='both', expand=True)
 
         tk.Label(
-            container, text="Ajustes de IA e Telemetria (Requer Privilégios de Administrador)", 
-            fg=COLOR_TEXT, bg=COLOR_CARD, font=('Segoe UI Semibold', 12)
+            container, text="Selecione as opções desejadas. Itens marcados serão DESATIVADOS/REMOVIDOS. Itens desmarcados serão ATIVADOS/RESTAURADOS.", 
+            fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI Semibold', 10), wraplength=700, justify='left'
         ).pack(anchor='w', pady=(0, 15))
 
-        # Checkboxes/Switches de Debloat
-        self.debloat_opts = {
-            "copilot": tk.BooleanVar(value=True),
-            "recall": tk.BooleanVar(value=True),
-            "cortana": tk.BooleanVar(value=True),
-            "web_search": tk.BooleanVar(value=True),
-            "telemetry": tk.BooleanVar(value=True),
-            "useless_services": tk.BooleanVar(value=True),
-            "edge": tk.BooleanVar(value=True),
-            "chrome_policies": tk.BooleanVar(value=True)
-        }
+        # Duas colunas para organizar o layout
+        cols_frame = ttk.Frame(container, style='Card.TFrame')
+        cols_frame.pack(fill='both', expand=True, pady=10)
+        cols_frame.columnconfigure((0, 1), weight=1, uniform="equal")
 
-        opts_desc = [
-            ("copilot", "🤖 Desativar Windows Copilot", "Desativa o Copilot via políticas de registro (HKLM/HKCU)."),
-            ("recall", "🧠 Desativar AI Recall", "Impede o Windows 11 de tirar capturas de tela e rastrear atividade via Recall."),
+        # Coluna 1: Privacidade & IA
+        col1 = ttk.Frame(cols_frame, style='Card.TFrame', padding=(0, 0, 15, 0))
+        col1.grid(row=0, column=0, sticky='nsew')
+        
+        tk.Label(col1, text="🛡️ PRIVACIDADE & IA", fg=COLOR_ACCENT, bg=COLOR_CARD, font=('Segoe UI Bold', 11)).pack(anchor='w', pady=(0, 10))
+
+        if not hasattr(self, 'debloat_opts'):
+            self.debloat_opts = {
+                "copilot": tk.BooleanVar(value=True),
+                "recall": tk.BooleanVar(value=True),
+                "cortana": tk.BooleanVar(value=True),
+                "web_search": tk.BooleanVar(value=True),
+                "telemetry": tk.BooleanVar(value=True),
+                "useless_services": tk.BooleanVar(value=True),
+                "edge": tk.BooleanVar(value=True),
+                "chrome_policies": tk.BooleanVar(value=True)
+            }
+            # Carregar estados atuais do sistema
+            self.load_debloat_states()
+
+        col1_opts = [
+            ("copilot", "🤖 Desativar Windows Copilot", "Desativa o Copilot nas políticas de registro (HKLM/HKCU)."),
+            ("recall", "🧠 Desativar AI Recall", "Impede o Windows 11 de rastrear atividades via Recall."),
             ("cortana", "🎙 Desativar Cortana", "Desativa completamente a assistente Cortana."),
-            ("web_search", "🔍 Desativar Busca Web no Iniciar", "Evita que buscas no Menu Iniciar enviem dados para o Bing."),
-            ("telemetry", "📊 Desativar Telemetria & Diagnósticos", "Para e desativa o serviço DiagTrack e bloqueia coleta de dados."),
-            ("useless_services", "⚙ Desativar Serviços Inúteis", "Desativa serviços raramente usados (Fax, RemoteRegistry, Wallet, Xbox)."),
-            ("edge", "🌐 Remover Microsoft Edge", "Remove o Microsoft Edge e tenta impedir seu funcionamento."),
-            ("chrome_policies", "🌐 Bloquear Perfis / Modo Convidado no Chrome", "Impede criar perfis secundários ou logar com outras contas no Chrome.")
+            ("web_search", "🔍 Desativar Busca Web no Iniciar", "Evita buscas enviando dados para o Bing."),
+            ("telemetry", "📊 Desativar Telemetria & Diagnósticos", "Desativa DiagTrack e bloqueia coleta de dados.")
         ]
 
-        for key, title, desc in opts_desc:
-            frame_opt = ttk.Frame(container, style='Card.TFrame')
-            frame_opt.pack(fill='x', pady=5)
-            
+        for key, title, desc in col1_opts:
+            frame_opt = ttk.Frame(col1, style='Card.TFrame')
+            frame_opt.pack(fill='x', pady=6)
             cb = tk.Checkbutton(
                 frame_opt, text=title, variable=self.debloat_opts[key],
                 bg=COLOR_CARD, fg=COLOR_TEXT, activebackground=COLOR_CARD,
@@ -509,122 +520,168 @@ class WindowsOptimizerApp:
                 font=('Segoe UI Semibold', 10), bd=0, highlightthickness=0
             )
             cb.pack(anchor='w')
-            
-            lbl_desc = tk.Label(frame_opt, text=desc, fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 9))
-            lbl_desc.pack(anchor='w', padx=25)
+            tk.Label(frame_opt, text=desc, fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 9)).pack(anchor='w', padx=25)
 
+        # Coluna 2: Serviços & Navegadores
+        col2 = ttk.Frame(cols_frame, style='Card.TFrame', padding=(15, 0, 0, 0))
+        col2.grid(row=0, column=1, sticky='nsew')
+
+        tk.Label(col2, text="⚙️ SERVIÇOS & NAVEGADORES", fg=COLOR_SUCCESS, bg=COLOR_CARD, font=('Segoe UI Bold', 11)).pack(anchor='w', pady=(0, 10))
+
+        col2_opts = [
+            ("useless_services", "⚙ Desativar Serviços Inúteis", "Desativa Fax, RemoteRegistry, Wallet, Xbox."),
+            ("edge", "🌐 Remover Microsoft Edge", "Remove o Microsoft Edge e bloqueia sua execução."),
+            ("chrome_policies", "🌐 Políticas de Restrição no Chrome", "Impede criar perfis ou guest mode no Chrome.")
+        ]
+
+        for key, title, desc in col2_opts:
+            frame_opt = ttk.Frame(col2, style='Card.TFrame')
+            frame_opt.pack(fill='x', pady=6)
+            cb = tk.Checkbutton(
+                frame_opt, text=title, variable=self.debloat_opts[key],
+                bg=COLOR_CARD, fg=COLOR_TEXT, activebackground=COLOR_CARD,
+                activeforeground=COLOR_TEXT, selectcolor="#121214",
+                font=('Segoe UI Semibold', 10), bd=0, highlightthickness=0
+            )
+            cb.pack(anchor='w')
+            tk.Label(frame_opt, text=desc, fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 9)).pack(anchor='w', padx=25)
+
+        # Botão na parte inferior
         btn_apply = tk.Button(
-            container, text="Aplicar Otimizações Selecionadas", bg=COLOR_ACCENT, fg=COLOR_TEXT,
+            container, text="Aplicar Modificações (Desativar / Reativar)", bg=COLOR_ACCENT, fg=COLOR_TEXT,
             relief='flat', bd=0, font=('Segoe UI Bold', 11), pady=12,
             activebackground=COLOR_BTN_HOVER, activeforeground=COLOR_TEXT,
             command=self.apply_debloat
         )
-        btn_apply.pack(fill='x', side='bottom', pady=(20, 0))
+        btn_apply.pack(fill='x', side='bottom', pady=(15, 0))
 
     def apply_debloat(self):
         if not is_admin():
             messagebox.showerror("Erro", "Esta operação requer privilégios de Administrador.")
             return
 
-        success_count = 0
-        err_msg = ""
+        def run():
+            success_count = 0
+            err_msg = ""
 
-        # 1. Desativar Copilot
-        if self.debloat_opts["copilot"].get():
+            # 1. Copilot
             try:
-                # Local Machine Registry
-                subprocess.run('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot" /v TurnOffWindowsCopilot /t REG_DWORD /d 1 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                # Current User Registry
-                subprocess.run('reg add "HKCU\\Software\\Policies\\Microsoft\\Windows\\WindowsCopilot" /v TurnOffWindowsCopilot /t REG_DWORD /d 1 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                if self.debloat_opts["copilot"].get():
+                    subprocess.run('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot" /v TurnOffWindowsCopilot /t REG_DWORD /d 1 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('reg add "HKCU\\Software\\Policies\\Microsoft\\Windows\\WindowsCopilot" /v TurnOffWindowsCopilot /t REG_DWORD /d 1 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                else:
+                    subprocess.run('reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot" /v TurnOffWindowsCopilot /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('reg delete "HKCU\\Software\\Policies\\Microsoft\\Windows\\WindowsCopilot" /v TurnOffWindowsCopilot /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 success_count += 1
             except Exception as e:
                 err_msg += f"Erro Copilot: {e}\n"
 
-        # 2. Desativar Recall
-        if self.debloat_opts["recall"].get():
+            # 2. Recall
             try:
-                subprocess.run('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI" /v AllowRecallEnablement /t REG_DWORD /d 0 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                subprocess.run('reg add "HKCU\\Software\\Policies\\Microsoft\\Windows\\WindowsAI" /v AllowRecallEnablement /t REG_DWORD /d 0 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                if self.debloat_opts["recall"].get():
+                    subprocess.run('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI" /v AllowRecallEnablement /t REG_DWORD /d 0 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('reg add "HKCU\\Software\\Policies\\Microsoft\\Windows\\WindowsAI" /v AllowRecallEnablement /t REG_DWORD /d 0 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                else:
+                    subprocess.run('reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI" /v AllowRecallEnablement /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('reg delete "HKCU\\Software\\Policies\\Microsoft\\Windows\\WindowsAI" /v AllowRecallEnablement /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 success_count += 1
             except Exception as e:
                 err_msg += f"Erro Recall: {e}\n"
 
-        # 3. Desativar Cortana
-        if self.debloat_opts["cortana"].get():
+            # 3. Cortana
             try:
-                subprocess.run('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" /v AllowCortana /t REG_DWORD /d 0 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                if self.debloat_opts["cortana"].get():
+                    subprocess.run('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" /v AllowCortana /t REG_DWORD /d 0 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                else:
+                    subprocess.run('reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" /v AllowCortana /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 success_count += 1
             except Exception as e:
                 err_msg += f"Erro Cortana: {e}\n"
 
-        # 4. Desativar Web Search no Iniciar
-        if self.debloat_opts["web_search"].get():
+            # 4. Web Search
             try:
-                subprocess.run('reg add "HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer" /v DisableSearchBoxSuggestions /t REG_DWORD /d 1 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                if self.debloat_opts["web_search"].get():
+                    subprocess.run('reg add "HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer" /v DisableSearchBoxSuggestions /t REG_DWORD /d 1 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                else:
+                    subprocess.run('reg delete "HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer" /v DisableSearchBoxSuggestions /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 success_count += 1
             except Exception as e:
                 err_msg += f"Erro Web Search: {e}\n"
 
-        # 5. Desativar Telemetria
-        if self.debloat_opts["telemetry"].get():
+            # 5. Telemetry
             try:
-                # Registry HKLM
-                subprocess.run('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" /v AllowTelemetry /t REG_DWORD /d 0 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                # Services
-                subprocess.run('sc config DiagTrack start=disabled', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                subprocess.run('sc stop DiagTrack', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                subprocess.run('sc config dmwappushservice start=disabled', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                subprocess.run('sc stop dmwappushservice', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                if self.debloat_opts["telemetry"].get():
+                    subprocess.run('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" /v AllowTelemetry /t REG_DWORD /d 0 /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('sc config DiagTrack start=disabled', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('sc stop DiagTrack', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('sc config dmwappushservice start=disabled', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('sc stop dmwappushservice', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                else:
+                    subprocess.run('reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" /v AllowTelemetry /f', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('sc config DiagTrack start=auto', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('sc start DiagTrack', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('sc config dmwappushservice start=auto', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.run('sc start dmwappushservice', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 success_count += 1
             except Exception as e:
                 err_msg += f"Erro Telemetria: {e}\n"
 
-        # 6. Desativar Serviços Inúteis
-        if self.debloat_opts["useless_services"].get():
-            services = [
-                "Fax",
-                "RemoteRegistry",
-                "WalletService",
-                "WMPNetworkSvc",
-                "XblAuthManager",
-                "XblGameSave",
-                "XboxNetApiSvc"
-            ]
+            # 6. Useless Services
+            services = ["Fax", "RemoteRegistry", "WalletService", "WMPNetworkSvc", "XblAuthManager", "XblGameSave", "XboxNetApiSvc"]
             for srv in services:
                 try:
-                    subprocess.run(f'sc config {srv} start=disabled', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                    subprocess.run(f'sc stop {srv}', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    if self.debloat_opts["useless_services"].get():
+                        subprocess.run(f'sc config {srv} start=disabled', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                        subprocess.run(f'sc stop {srv}', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    else:
+                        subprocess.run(f'sc config {srv} start=demand', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 except Exception:
                     pass
             success_count += 1
 
-        # 7. Remover Microsoft Edge
-        if self.debloat_opts["edge"].get():
+            # 7. Microsoft Edge
             try:
-                self._execute_edge_removal()
+                if self.debloat_opts["edge"].get():
+                    self._execute_edge_removal()
+                else:
+                    self._execute_edge_restoration()
                 success_count += 1
             except Exception as e:
                 err_msg += f"Erro Edge: {e}\n"
 
-        # 8. Aplicar políticas do Chrome
-        if self.debloat_opts["chrome_policies"].get():
+            # 8. Chrome Policies
             try:
-                cmds = [
-                    'reg add "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v BrowserAddPersonEnabled /t REG_DWORD /d 0 /f',
-                    'reg add "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v BrowserGuestModeEnabled /t REG_DWORD /d 0 /f',
-                    'reg add "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v BrowserSignin /t REG_DWORD /d 2 /f',
-                    'reg add "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v AccountsRestriction /t REG_SZ /d "primary_account_only" /f'
-                ]
-                for cmd in cmds:
-                    subprocess.run(cmd, shell=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                if self.debloat_opts["chrome_policies"].get():
+                    cmds = [
+                        'reg add "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v BrowserAddPersonEnabled /t REG_DWORD /d 0 /f',
+                        'reg add "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v BrowserGuestModeEnabled /t REG_DWORD /d 0 /f',
+                        'reg add "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v BrowserSignin /t REG_DWORD /d 2 /f',
+                        'reg add "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v AccountsRestriction /t REG_SZ /d "primary_account_only" /f'
+                    ]
+                    for cmd in cmds:
+                        subprocess.run(cmd, shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                else:
+                    cmds = [
+                        'reg delete "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v BrowserAddPersonEnabled /f',
+                        'reg delete "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v BrowserGuestModeEnabled /f',
+                        'reg delete "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v BrowserSignin /f',
+                        'reg delete "HKLM\\SOFTWARE\\Policies\\Google\\Chrome" /v AccountsRestriction /f'
+                    ]
+                    for cmd in cmds:
+                        subprocess.run(cmd, shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 success_count += 1
             except Exception as e:
                 err_msg += f"Erro Chrome Policies: {e}\n"
 
-        if err_msg:
-            messagebox.showwarning("Resultados", f"Otimizações aplicadas com alguns erros:\n{err_msg}\nRecomenda-se reiniciar o computador para aplicar todos os efeitos.")
-        else:
-            messagebox.showinfo("Sucesso", "Todas as otimizações selecionadas foram aplicadas com sucesso!\n\nRecomenda-se reiniciar o computador para aplicar os efeitos.")
+            if err_msg:
+                self.root.after(0, lambda: messagebox.showwarning("Resultados", f"Modificações aplicadas com alguns erros:\n{err_msg}\nRecomenda-se reiniciar o computador."))
+            else:
+                self.root.after(0, lambda: messagebox.showinfo("Sucesso", "Todas as modificações de debloat/restauração foram aplicadas com sucesso!"))
+            
+            # Recarregar estados
+            self.root.after(0, self.load_debloat_states)
+
+        threading.Thread(target=run, daemon=True).start()
 
     # ----------------------------------------------------
     # ABA 4: GERENCIADOR DE USUÁRIOS
@@ -1320,6 +1377,90 @@ class WindowsOptimizerApp:
             messagebox.showinfo("Sucesso", "Inicialização Rápida e Hibernação desativadas com sucesso!")
         except Exception as e:
             messagebox.showerror("Erro", f"Falha ao desativar Inicialização Rápida:\n{e}")
+
+    def _execute_edge_restoration(self):
+        # 1. Remover registros de bloqueio
+        reg_commands = [
+            'reg delete "HKLM\\SOFTWARE\\Microsoft\\EdgeUpdate" /v DoNotUpdateToEdgeWithChromium /f',
+            'reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\EdgeUpdate" /v InstallDefault /f',
+            'reg delete "HKLM\\SOFTWARE\\Policies\\Microsoft\\EdgeUpdate" /v Install{56EB18C8-B163-40A0-8940-34185C667824} /f'
+        ]
+        for cmd in reg_commands:
+            subprocess.run(cmd, shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            
+        # 2. Executar winget para baixar e instalar o Edge
+        cmd_winget = 'winget install --id Microsoft.Edge --silent --accept-source-agreements --accept-package-agreements'
+        res = subprocess.run(cmd_winget, shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        if res.returncode != 0:
+            # Fallback download MSI
+            cmd_ps = 'powershell -NoProfile -Command "Invoke-WebRequest -Uri \'https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/b498f395-5cb3-4876-b633-8a033c467a84/MicrosoftEdgeEnterpriseX64.msi\' -OutFile \'$env:TEMP\\MicrosoftEdge.msi\'; Start-Process msiexec.exe -ArgumentList \'/i $env:TEMP\\MicrosoftEdge.msi /qn /norestart\' -Wait"'
+            subprocess.run(cmd_ps, shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        return True
+
+    def action_restore_edge(self):
+        confirm = messagebox.askyesno(
+            "Confirmar Restauração do Edge",
+            "Deseja realmente reinstalar o Microsoft Edge e remover os bloqueios de atualização?"
+        )
+        if not confirm: return
+
+        if not is_admin():
+            messagebox.showerror("Erro", "Esta operação requer privilégios de Administrador.")
+            return
+
+        def run():
+            self.root.after(0, lambda: messagebox.showinfo("Instalação em Andamento", "A instalação do Edge foi iniciada em segundo plano. Por favor, aguarde."))
+            try:
+                self._execute_edge_restoration()
+                messagebox.showinfo("Sucesso", "O Microsoft Edge foi reinstalado com sucesso!")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Ocorreu um erro durante a reinstalação: {e}")
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def action_flush_dns(self):
+        try:
+            res = subprocess.run("ipconfig /flushdns", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            if res.returncode == 0:
+                messagebox.showinfo("Sucesso", "Cache do resolvedor DNS limpo com sucesso!")
+            else:
+                messagebox.showerror("Erro", "Falha ao limpar cache DNS.")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao executar: {e}")
+
+    def check_reg_value(self, path, value_name, expected_val):
+        try:
+            res = subprocess.run(f'reg query "{path}" /v "{value_name}"', shell=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            if res.returncode == 0:
+                for line in res.stdout.splitlines():
+                    if value_name in line:
+                        parts = line.split()
+                        val = int(parts[-1], 16) if parts[-1].startswith("0x") else int(parts[-1])
+                        return val == expected_val
+            return False
+        except Exception:
+            return False
+
+    def check_service_disabled(self, service_name):
+        try:
+            res = subprocess.run(f'sc qc {service_name}', shell=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            if res.returncode == 0:
+                return "DISABLED" in res.stdout.upper()
+            return False
+        except Exception:
+            return False
+
+    def load_debloat_states(self):
+        self.debloat_opts["copilot"].set(self.check_reg_value("HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot", "TurnOffWindowsCopilot", 1))
+        self.debloat_opts["recall"].set(self.check_reg_value("HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "AllowRecallEnablement", 0))
+        self.debloat_opts["cortana"].set(self.check_reg_value("HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search", "AllowCortana", 0))
+        self.debloat_opts["web_search"].set(self.check_reg_value("HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer", "DisableSearchBoxSuggestions", 1))
+        self.debloat_opts["telemetry"].set(self.check_reg_value("HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "AllowTelemetry", 0))
+        self.debloat_opts["useless_services"].set(self.check_service_disabled("Fax"))
+        pf_x86 = os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")
+        self.debloat_opts["edge"].set(not os.path.exists(os.path.join(pf_x86, "Microsoft", "Edge", "Application", "msedge.exe")))
+        self.debloat_opts["chrome_policies"].set(self.check_reg_value("HKLM\\SOFTWARE\\Policies\\Google\\Chrome", "BrowserAddPersonEnabled", 0))
 
 
 def is_admin():
