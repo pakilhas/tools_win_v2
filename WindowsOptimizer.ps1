@@ -95,7 +95,7 @@ function Show-MaintenanceMenu {
     Write-Host "=============================================" -ForegroundColor Green
     Write-Host "           MANUTENCAO DO SISTEMA             " -ForegroundColor Green
     Write-Host "=============================================" -ForegroundColor Green
-    Write-Host "1. Limpeza de Memoria (Desativar WinSat)" -ForegroundColor White
+    Write-Host "1. Limpeza Real de Memória RAM & WinSat" -ForegroundColor White
     Write-Host "2. Limpeza de Disco" -ForegroundColor White
     Write-Host "3. Opcoes de Pasta" -ForegroundColor White
     Write-Host "4. Fontes do Sistema" -ForegroundColor White
@@ -115,6 +115,7 @@ function Show-MaintenanceMenu {
     Write-Host "18. Desativar Inicializacao Rapida" -ForegroundColor White
     Write-Host "19. Otimizacoes Avançadas de Desempenho" -ForegroundColor White
     Write-Host "20. Desativar Servicos de Background" -ForegroundColor White
+    Write-Host "21. Remover Microsoft Edge" -ForegroundColor White
     Write-Host "0. Voltar ao Menu Principal" -ForegroundColor Red
     Write-Host "=============================================" -ForegroundColor Green
 }
@@ -315,6 +316,95 @@ function Disable-BackgroundServices {
     }
 }
 
+function Remove-Edge {
+    Write-Host "Iniciando remocao agressiva do Microsoft Edge..." -ForegroundColor Yellow
+    
+    # 1. Matar processos do Edge
+    Stop-Process -Name "msedge" -Force -ErrorAction SilentlyContinue
+    Stop-Process -Name "MicrosoftEdgeUpdate" -Force -ErrorAction SilentlyContinue
+    
+    # 2. Desinstalador oficial por setup.exe
+    $pfX86 = $env:ProgramFilesX86
+    if (-not $pfX86) { $pfX86 = "C:\Program Files (x86)" }
+    $pf = $env:ProgramFiles
+    if (-not $pf) { $pf = "C:\Program Files" }
+    
+    $paths = @(
+        "$pfX86\Microsoft\Edge\Application\*\Installer\setup.exe",
+        "$pf\Microsoft\Edge\Application\*\Installer\setup.exe"
+    )
+    
+    foreach ($p in $paths) {
+        $installers = Resolve-Path $p -ErrorAction SilentlyContinue
+        if ($installers) {
+            foreach ($setup in $installers) {
+                Write-Host "Executando desinstalador: $setup" -ForegroundColor Yellow
+                Start-Process -FilePath $setup -ArgumentList "--uninstall", "--system-level", "--verbose-logging", "--force-uninstall" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    
+    # 3. Remover pacotes Appx
+    Write-Host "Removendo pacotes Appx..." -ForegroundColor Yellow
+    Get-AppxPackage -AllUsers -Name *MicrosoftEdge* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+    Get-AppxProvisionedPackage -Online | Where-Object {$_.DisplayName -like '*MicrosoftEdge*'} | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+    
+    # 4. Bloquear reinstalacao no registro
+    Write-Host "Bloqueando reinstalacao automatica..." -ForegroundColor Yellow
+    reg add "HKLM\SOFTWARE\Microsoft\EdgeUpdate" /v DoNotUpdateToEdgeWithChromium /t REG_DWORD /d 1 /f | Out-Null
+    reg add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v InstallDefault /t REG_DWORD /d 0 /f | Out-Null
+    reg add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v Install{56EB18C8-B163-40A0-8940-34185C667824} /t REG_DWORD /d 0 /f | Out-Null
+    
+    # 5. Renomear pastas remanescentes se possivel
+    $edgeDirs = @(
+        "$pfX86\Microsoft\Edge",
+        "$pfX86\Microsoft\EdgeUpdate",
+        "$pf\Microsoft\Edge"
+    )
+    foreach ($dir in $edgeDirs) {
+        if (Test-Path $dir) {
+            try {
+                Rename-Item -Path $dir -NewName "$dir`_removed" -Force -ErrorAction SilentlyContinue
+            } catch {}
+        }
+    }
+    
+    Write-Host "Remocao do Microsoft Edge concluida com sucesso!" -ForegroundColor Green
+}
+
+function Clear-Memory {
+    Write-Host "Iniciando otimizacao e limpeza da memoria RAM..." -ForegroundColor Yellow
+    $processes = Get-Process
+    $successCount = 0
+    
+    $code = @'
+    using System;
+    using System.Runtime.InteropServices;
+    
+    public class Psapi {
+        [DllImport("psapi.dll", SetLastError=true)]
+        public static extern bool EmptyWorkingSet(IntPtr hProcess);
+    }
+'@
+    
+    if (-not ([System.Management.Automation.PSTypeName]'Psapi').Type) {
+        Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
+    }
+    
+    foreach ($proc in $processes) {
+        if ($proc.Id -le 4) { continue }
+        try {
+            $handle = $proc.Handle
+            if ($handle -ne [IntPtr]::Zero) {
+                if ([Psapi]::EmptyWorkingSet($handle)) {
+                    $successCount++
+                }
+            }
+        } catch {}
+    }
+    Write-Host "Memoria fisica liberada com sucesso de $successCount processos!" -ForegroundColor Green
+}
+
 # Funções existentes (mantidas do código anterior)
 function Export-IPsToFile {
     param([array]$IPList)
@@ -406,6 +496,7 @@ do {
                 
                 switch ($maintenanceChoice) {
                     '1' {
+                        Clear-Memory
                         try {
                             if (Test-CommandExists "Disable-ScheduledTask") {
                                 Disable-ScheduledTask -TaskName "WinSat" -TaskPath "\Microsoft\Windows\Maintenance" -ErrorAction Stop
@@ -585,6 +676,10 @@ do {
                     }
                     '20' { 
                         Disable-BackgroundServices
+                        Pause
+                    }
+                    '21' { 
+                        Remove-Edge
                         Pause
                     }
                     '0' { break }

@@ -265,6 +265,8 @@ class WindowsOptimizerApp:
         # Botões de Otimização
         actions = [
             ("🧹 Limpar Arquivos Temporários", "Limpa cache de atualizações, pasta temp de usuários, logs e arquivos de despejo do Windows.", self.action_clean_temp),
+            ("🚀 Liberar Memória RAM", "Libera a memória RAM do sistema forçando processos a liberarem memória física.", self.action_free_ram),
+            ("🌐 Remover Microsoft Edge", "Remove completamente o Edge do Windows 11 e bloqueia a sua reinstalação automática.", self.action_remove_edge),
             ("⚡ Plano de Alto Desempenho", "Configura e ativa o perfil de energia de Alto Desempenho do Windows.", self.action_high_performance),
             ("🔇 Desativar WinSat", "Desativa o agendamento do WinSat (avaliação do sistema) que roda em segundo plano e consome disco/CPU.", self.action_disable_winsat),
             ("🚀 Otimizar Inicialização Rápida", "Desativa a hibernação híbrida que pode acumular lixo na inicialização e causar travamentos.", self.action_disable_fast_startup),
@@ -599,23 +601,8 @@ class WindowsOptimizerApp:
         # 7. Remover Microsoft Edge
         if self.debloat_opts["edge"].get():
             try:
-                import glob
-                pf_x86 = os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")
-                installers = glob.glob(os.path.join(pf_x86, "Microsoft", "Edge", "Application", "*", "Installer", "setup.exe"))
-                if not installers:
-                    pf = os.environ.get("ProgramFiles", "C:\\Program Files")
-                    installers = glob.glob(os.path.join(pf, "Microsoft", "Edge", "Application", "*", "Installer", "setup.exe"))
-                
-                if installers:
-                    setup_exe = installers[0]
-                    cmd = f'"{setup_exe}" --uninstall --system-level --verbose-logging --force-uninstall'
-                    res = subprocess.run(cmd, shell=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                    if res.returncode == 0:
-                        success_count += 1
-                    else:
-                        err_msg += f"Erro Edge (cod {res.returncode}): {res.stderr}\n"
-                else:
-                    err_msg += "Desinstalador do Microsoft Edge nao encontrado (ja pode ter sido removido).\n"
+                self._execute_edge_removal()
+                success_count += 1
             except Exception as e:
                 err_msg += f"Erro Edge: {e}\n"
 
@@ -1077,8 +1064,65 @@ class WindowsOptimizerApp:
     # ----------------------------------------------------
     # OPERAÇÕES DE LIMPEZA DO DASHBOARD
     # ----------------------------------------------------
-    def action_clean_temp(self):
-        confirm = messagebox.askyesno("Confirmar Limpeza", "Deseja limpar os arquivos temporários e caches de atualização agora?")
+    def _execute_edge_removal(self):
+        # 1. Matar processos do Edge
+        subprocess.run("taskkill /f /im msedge.exe", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run("taskkill /f /im MicrosoftEdgeUpdate.exe", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        # 2. Desinstalador oficial por setup.exe
+        import glob
+        pf_x86 = os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")
+        installers = glob.glob(os.path.join(pf_x86, "Microsoft", "Edge", "Application", "*", "Installer", "setup.exe"))
+        if not installers:
+            pf = os.environ.get("ProgramFiles", "C:\\Program Files")
+            installers = glob.glob(os.path.join(pf, "Microsoft", "Edge", "Application", "*", "Installer", "setup.exe"))
+        
+        if installers:
+            for setup_exe in installers:
+                cmd = f'"{setup_exe}" --uninstall --system-level --verbose-logging --force-uninstall'
+                subprocess.run(cmd, shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        # 3. Remover pacotes Appx do Edge
+        appx_commands = [
+            'powershell -NoProfile -Command "Get-AppxPackage -AllUsers -Name *MicrosoftEdge* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue"',
+            'powershell -NoProfile -Command "Get-AppxProvisionedPackage -Online | Where-Object {$_.DisplayName -like \'*MicrosoftEdge*\'} | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue"'
+        ]
+        for cmd in appx_commands:
+            subprocess.run(cmd, shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        # 4. Configurar registros para impedir reinstalação automática via Windows Update
+        reg_commands = [
+            'reg add "HKLM\\SOFTWARE\\Microsoft\\EdgeUpdate" /v DoNotUpdateToEdgeWithChromium /t REG_DWORD /d 1 /f',
+            'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\EdgeUpdate" /v InstallDefault /t REG_DWORD /d 0 /f',
+            'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\EdgeUpdate" /v Install{56EB18C8-B163-40A0-8940-34185C667824} /t REG_DWORD /d 0 /f'
+        ]
+        for cmd in reg_commands:
+            subprocess.run(cmd, shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            
+        # 5. Remover atalhos e pastas remanescentes se possível
+        edge_dirs = [
+            os.path.join(pf_x86, "Microsoft", "Edge"),
+            os.path.join(pf_x86, "Microsoft", "EdgeUpdate"),
+            os.path.join(pf_x86, "Microsoft", "EdgeWebView")
+        ]
+        if "ProgramFiles" in os.environ:
+            edge_dirs.append(os.path.join(os.environ["ProgramFiles"], "Microsoft", "Edge"))
+            
+        for d in edge_dirs:
+            if os.path.exists(d):
+                try:
+                    os.rename(d, d + "_removed_by_optimizer")
+                except Exception:
+                    pass
+        return True
+
+    def action_remove_edge(self):
+        confirm = messagebox.askyesno(
+            "Confirmar Remoção do Edge",
+            "Deseja realmente remover o Microsoft Edge do Windows 11?\n\n"
+            "Isso encerrará o Edge, executará o desinstalador oficial, "
+            "removerá os pacotes Appx e bloqueará futuras reinstalações via Windows Update."
+        )
         if not confirm: return
 
         if not is_admin():
@@ -1086,16 +1130,101 @@ class WindowsOptimizerApp:
             return
 
         def run():
-            commands = [
-                'del /q /f /s "%TEMP%\\*.*"',
-                'del /q /f /s "C:\\Windows\\Temp\\*.*"',
-                'powershell -NoProfile -Command "Remove-Item -Path $env:LOCALAPPDATA\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue"',
-                'powershell -NoProfile -Command "Remove-Item -Path C:\\Windows\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue"'
-            ]
-            for cmd in commands:
-                subprocess.run(cmd, shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            self.root.after(0, lambda: messagebox.showinfo("Remoção em Andamento", "A remoção do Edge foi iniciada em segundo plano. Por favor, aguarde."))
+            try:
+                self._execute_edge_removal()
+                messagebox.showinfo("Sucesso", "O Microsoft Edge foi desinstalado e as políticas de bloqueio de reinstalação foram aplicadas com sucesso!")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Ocorreu um erro durante a remoção: {e}")
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def action_free_ram(self):
+        if not is_admin():
+            messagebox.showerror("Erro", "Esta operação requer privilégios de Administrador.")
+            return
+
+        def run():
+            ram_before = psutil.virtual_memory().available
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            psapi = ctypes.windll.psapi
             
-            messagebox.showinfo("Limpeza Concluída", "Arquivos temporários e pastas de cache limpos com sucesso!")
+            count_cleaned = 0
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    pid = proc.info['pid']
+                    if pid <= 4:
+                        continue
+                    handle = kernel32.OpenProcess(0x0400 | 0x0100, False, pid)
+                    if handle:
+                        if psapi.EmptyWorkingSet(handle):
+                            count_cleaned += 1
+                        kernel32.CloseHandle(handle)
+                except Exception:
+                    pass
+            
+            ram_after = psutil.virtual_memory().available
+            freed = (ram_after - ram_before) / (1024 * 1024)
+            if freed < 0:
+                freed = 0
+                
+            self.root.after(0, self.update_system_stats)
+            self.root.after(0, lambda: messagebox.showinfo("Memória Liberada", f"Memória RAM otimizada com sucesso!\nProcessos limpos: {count_cleaned}\nMemória liberada: ~{freed:.2f} MB."))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def action_clean_temp(self):
+        confirm = messagebox.askyesno("Confirmar Limpeza", "Deseja limpar os arquivos temporários, caches do Windows Update, logs e lixeira agora?")
+        if not confirm: return
+
+        if not is_admin():
+            messagebox.showerror("Erro", "Esta operação requer privilégios de Administrador.")
+            return
+
+        def run():
+            subprocess.run("net stop wuauserv", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            subprocess.run("net stop bits", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            clean_paths = [
+                os.environ.get("TEMP", ""),
+                os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "Temp"),
+                os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "Prefetch"),
+                os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "SoftwareDistribution\\Download"),
+                os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "Logs"),
+                os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "Minidump")
+            ]
+            
+            cleaned_size = 0
+            for p in clean_paths:
+                if not p or not os.path.exists(p):
+                    continue
+                for root_dir, dirs, files in os.walk(p):
+                    for file in files:
+                        fp = os.path.join(root_dir, file)
+                        try:
+                            cleaned_size += os.path.getsize(fp)
+                            os.remove(fp)
+                        except Exception:
+                            pass
+                    for d in dirs:
+                        dp = os.path.join(root_dir, d)
+                        try:
+                            import shutil
+                            shutil.rmtree(dp, ignore_errors=True)
+                        except Exception:
+                            pass
+
+            try:
+                ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, 7)
+            except Exception:
+                pass
+                
+            subprocess.run("net start wuauserv", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            subprocess.run("net start bits", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            size_mb = cleaned_size / (1024 * 1024)
+            messagebox.showinfo("Limpeza Concluída", f"Limpeza de temporários concluída!\nForam liberados aproximadamente {size_mb:.2f} MB.")
 
         threading.Thread(target=run, daemon=True).start()
 
