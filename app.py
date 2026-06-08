@@ -1065,16 +1065,18 @@ class WindowsOptimizerApp:
     # OPERAÇÕES DE LIMPEZA DO DASHBOARD
     # ----------------------------------------------------
     def _execute_edge_removal(self):
-        # 1. Matar processos do Edge
+        # 1. Matar processos do Edge e do updater de forma exaustiva
         subprocess.run("taskkill /f /im msedge.exe", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         subprocess.run("taskkill /f /im MicrosoftEdgeUpdate.exe", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run("taskkill /f /im edgeupdate.exe", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run("taskkill /f /im msedgewebview2.exe", shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         
-        # 2. Desinstalador oficial por setup.exe
+        # 2. Desinstalador oficial por setup.exe se existir
         import glob
         pf_x86 = os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")
+        pf = os.environ.get("ProgramFiles", "C:\\Program Files")
         installers = glob.glob(os.path.join(pf_x86, "Microsoft", "Edge", "Application", "*", "Installer", "setup.exe"))
         if not installers:
-            pf = os.environ.get("ProgramFiles", "C:\\Program Files")
             installers = glob.glob(os.path.join(pf, "Microsoft", "Edge", "Application", "*", "Installer", "setup.exe"))
         
         if installers:
@@ -1090,8 +1092,26 @@ class WindowsOptimizerApp:
         for cmd in appx_commands:
             subprocess.run(cmd, shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         
-        # 4. Configurar registros para impedir reinstalação automática via Windows Update
+        # 4. Deletar Serviços do Edge do Registro/Sistema
+        services = ["edgeupdate", "edgeupdatem"]
+        for srv in services:
+            subprocess.run(f'sc stop {srv}', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            subprocess.run(f'sc delete {srv}', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            
+        # 5. Deletar Tarefas Agendadas
+        tasks = [
+            "MicrosoftEdgeUpdateTaskMachineCore",
+            "MicrosoftEdgeUpdateTaskMachineUA",
+            "MicrosoftEdgeUpdateTaskMachineCoreGlobal",
+            "MicrosoftEdgeUpdateTaskMachineUAGlobal"
+        ]
+        for t in tasks:
+            subprocess.run(f'schtasks /delete /tn "{t}" /f', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            
+        # 6. Remover App Paths do Registro para que o Windows não consiga chamar "msedge"
         reg_commands = [
+            'reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\msedge.exe" /f',
+            'reg delete "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\msedge.exe" /f',
             'reg add "HKLM\\SOFTWARE\\Microsoft\\EdgeUpdate" /v DoNotUpdateToEdgeWithChromium /t REG_DWORD /d 1 /f',
             'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\EdgeUpdate" /v InstallDefault /t REG_DWORD /d 0 /f',
             'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\EdgeUpdate" /v Install{56EB18C8-B163-40A0-8940-34185C667824} /t REG_DWORD /d 0 /f'
@@ -1099,21 +1119,57 @@ class WindowsOptimizerApp:
         for cmd in reg_commands:
             subprocess.run(cmd, shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
             
-        # 5. Remover atalhos e pastas remanescentes se possível
+        # 7. Remover atalhos do Edge da Área de Trabalho e Menu Iniciar
+        shortcuts = [
+            "C:\\Users\\Public\\Desktop\\Microsoft Edge.lnk",
+            "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Microsoft Edge.lnk"
+        ]
+        user_profile = os.environ.get("USERPROFILE", "C:\\Users\\Default")
+        shortcuts.append(os.path.join(user_profile, "Desktop", "Microsoft Edge.lnk"))
+        shortcuts.append(os.path.join(user_profile, "AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Microsoft Edge.lnk"))
+        
+        for shortcut in shortcuts:
+            if os.path.exists(shortcut):
+                try:
+                    os.remove(shortcut)
+                except Exception:
+                    pass
+                    
+        # 8. Tomar posse e conceder acesso total recursivamente para deletar/renomear pastas
+        local_appdata = os.environ.get("LOCALAPPDATA", "C:\\Users\\Default\\AppData\\Local")
         edge_dirs = [
             os.path.join(pf_x86, "Microsoft", "Edge"),
             os.path.join(pf_x86, "Microsoft", "EdgeUpdate"),
-            os.path.join(pf_x86, "Microsoft", "EdgeWebView")
+            os.path.join(pf_x86, "Microsoft", "EdgeCore"),
+            os.path.join(pf_x86, "Microsoft", "EdgeWebView"),
+            os.path.join(pf, "Microsoft", "Edge"),
+            os.path.join(pf, "Microsoft", "EdgeUpdate"),
+            os.path.join(pf, "Microsoft", "EdgeCore"),
+            os.path.join(local_appdata, "Microsoft", "Edge"),
+            os.path.join(local_appdata, "Microsoft", "EdgeUpdate"),
+            os.path.join(local_appdata, "Microsoft", "EdgeSxS")
         ]
-        if "ProgramFiles" in os.environ:
-            edge_dirs.append(os.path.join(os.environ["ProgramFiles"], "Microsoft", "Edge"))
-            
+        
         for d in edge_dirs:
             if os.path.exists(d):
+                # Executar takeown e icacls para liberar permissões travadas por TrustedInstaller
+                subprocess.run(f'takeown /f "{d}" /r /d y', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                subprocess.run(f'icacls "{d}" /grant *S-1-5-32-544:F /t /c /q', shell=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                
+                # Tenta deletar fisicamente
+                import shutil
                 try:
-                    os.rename(d, d + "_removed_by_optimizer")
+                    shutil.rmtree(d, ignore_errors=True)
                 except Exception:
                     pass
+                
+                # Se ainda sobrar algum arquivo em uso, renomeia a pasta para invalidar o caminho
+                if os.path.exists(d):
+                    try:
+                        import time
+                        os.rename(d, d + f"_removed_{int(time.time())}")
+                    except Exception:
+                        pass
         return True
 
     def action_remove_edge(self):

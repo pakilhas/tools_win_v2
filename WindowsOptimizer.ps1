@@ -319,9 +319,11 @@ function Disable-BackgroundServices {
 function Remove-Edge {
     Write-Host "Iniciando remocao agressiva do Microsoft Edge..." -ForegroundColor Yellow
     
-    # 1. Matar processos do Edge
+    # 1. Matar processos de forma exaustiva
     Stop-Process -Name "msedge" -Force -ErrorAction SilentlyContinue
     Stop-Process -Name "MicrosoftEdgeUpdate" -Force -ErrorAction SilentlyContinue
+    Stop-Process -Name "edgeupdate" -Force -ErrorAction SilentlyContinue
+    Stop-Process -Name "msedgewebview2" -Force -ErrorAction SilentlyContinue
     
     # 2. Desinstalador oficial por setup.exe
     $pfX86 = $env:ProgramFilesX86
@@ -349,23 +351,77 @@ function Remove-Edge {
     Get-AppxPackage -AllUsers -Name *MicrosoftEdge* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
     Get-AppxProvisionedPackage -Online | Where-Object {$_.DisplayName -like '*MicrosoftEdge*'} | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
     
-    # 4. Bloquear reinstalacao no registro
-    Write-Host "Bloqueando reinstalacao automatica..." -ForegroundColor Yellow
+    # 4. Deletar Serviços do Edge
+    Write-Host "Removendo servicos do Edge..." -ForegroundColor Yellow
+    $services = @("edgeupdate", "edgeupdatem")
+    foreach ($srv in $services) {
+        Stop-Service -Name $srv -Force -ErrorAction SilentlyContinue
+        sc.exe delete $srv | Out-Null
+    }
+    
+    # 5. Deletar Tarefas Agendadas
+    Write-Host "Removendo tarefas agendadas..." -ForegroundColor Yellow
+    $tasks = @(
+        "MicrosoftEdgeUpdateTaskMachineCore",
+        "MicrosoftEdgeUpdateTaskMachineUA",
+        "MicrosoftEdgeUpdateTaskMachineCoreGlobal",
+        "MicrosoftEdgeUpdateTaskMachineUAGlobal"
+    )
+    foreach ($t in $tasks) {
+        schtasks.exe /delete /tn "$t" /f | Out-Null
+    }
+    
+    # 6. Remover caminhos no registro
+    Write-Host "Limpando chaves de registro..." -ForegroundColor Yellow
     reg add "HKLM\SOFTWARE\Microsoft\EdgeUpdate" /v DoNotUpdateToEdgeWithChromium /t REG_DWORD /d 1 /f | Out-Null
     reg add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v InstallDefault /t REG_DWORD /d 0 /f | Out-Null
     reg add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v Install{56EB18C8-B163-40A0-8940-34185C667824} /t REG_DWORD /d 0 /f | Out-Null
+    reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe" /f | Out-Null
+    reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe" /f | Out-Null
     
-    # 5. Renomear pastas remanescentes se possivel
+    # 7. Remover atalhos
+    Write-Host "Removendo atalhos do sistema..." -ForegroundColor Yellow
+    $shortcuts = @(
+        "C:\Users\Public\Desktop\Microsoft Edge.lnk",
+        "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk",
+        "$env:USERPROFILE\Desktop\Microsoft Edge.lnk",
+        "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Microsoft Edge.lnk"
+    )
+    foreach ($shortcut in $shortcuts) {
+        if (Test-Path $shortcut) {
+            Remove-Item -Path $shortcut -Force -ErrorAction SilentlyContinue
+        }
+    }
+    
+    # 8. Tomar posse e conceder acesso total recursivamente para deletar/renomear pastas
+    Write-Host "Tomando posse e excluindo pastas de arquivos..." -ForegroundColor Yellow
     $edgeDirs = @(
         "$pfX86\Microsoft\Edge",
         "$pfX86\Microsoft\EdgeUpdate",
-        "$pf\Microsoft\Edge"
+        "$pfX86\Microsoft\EdgeCore",
+        "$pfX86\Microsoft\EdgeWebView",
+        "$pf\Microsoft\Edge",
+        "$pf\Microsoft\EdgeUpdate",
+        "$pf\Microsoft\EdgeCore",
+        "$env:LOCALAPPDATA\Microsoft\Edge",
+        "$env:LOCALAPPDATA\Microsoft\EdgeUpdate",
+        "$env:LOCALAPPDATA\Microsoft\EdgeSxS"
     )
     foreach ($dir in $edgeDirs) {
         if (Test-Path $dir) {
-            try {
-                Rename-Item -Path $dir -NewName "$dir`_removed" -Force -ErrorAction SilentlyContinue
-            } catch {}
+            # Executar takeown e icacls com SID universal de Administradores (*S-1-5-32-544)
+            takeown.exe /f "$dir" /r /d y | Out-Null
+            icacls.exe "$dir" /grant *S-1-5-32-544:F /t /c /q | Out-Null
+            
+            Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
+            
+            # Se ainda restar algum arquivo bloqueado, renomeia
+            if (Test-Path $dir) {
+                $epoch = [int](Get-Date -UFormat %s)
+                try {
+                    Rename-Item -Path $dir -NewName "$dir`_removed`_$epoch" -Force -ErrorAction SilentlyContinue
+                } catch {}
+            }
         }
     }
     
