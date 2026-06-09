@@ -210,15 +210,43 @@ class WindowsOptimizerApp:
     # ABA 1: DASHBOARD
     # ----------------------------------------------------
     def show_dashboard_tab(self):
+        # Container com Canvas para Scroll
+        canvas = tk.Canvas(self.content_area, bg=COLOR_BG, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self.content_area, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas, style='TFrame')
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        def configure_canvas(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        canvas.bind("<Configure>", configure_canvas)
+
+        # Scrolling com mouse
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
         # Título
         lbl_title = tk.Label(
-            self.content_area, text="Painel do Sistema", fg=COLOR_TEXT, bg=COLOR_BG,
+            scrollable_frame, text="Painel do Sistema", fg=COLOR_TEXT, bg=COLOR_BG,
             font=('Segoe UI Semibold', 18), anchor='w'
         )
         lbl_title.pack(fill='x', pady=(0, 15))
 
         # Grid de Status de Recursos (CPU, RAM, Disco)
-        stats_frame = ttk.Frame(self.content_area)
+        stats_frame = ttk.Frame(scrollable_frame)
         stats_frame.pack(fill='x', pady=5)
         stats_frame.columnconfigure((0, 1, 2), weight=1, uniform="equal")
 
@@ -250,7 +278,7 @@ class WindowsOptimizerApp:
         self.canvas_disk.pack(fill='x', pady=5)
 
         # Seção de Ações Rápidas de Otimização
-        quick_frame = ttk.Frame(self.content_area, style='Card.TFrame', padding=20)
+        quick_frame = ttk.Frame(scrollable_frame, style='Card.TFrame', padding=20)
         quick_frame.pack(fill='both', expand=True, pady=(20, 0))
 
         tk.Label(
@@ -477,8 +505,30 @@ class WindowsOptimizerApp:
             fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI Semibold', 10), wraplength=700, justify='left'
         ).pack(anchor='w', pady=(0, 15))
 
-        scroll_frame = ttk.Frame(container, style='Card.TFrame')
-        scroll_frame.pack(fill='both', expand=True)
+        canvas = tk.Canvas(container, bg=COLOR_CARD, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        scroll_frame = tk.Frame(canvas, bg=COLOR_CARD)
+
+        scroll_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas_window = canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+
+        def configure_canvas(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        canvas.bind("<Configure>", configure_canvas)
+
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        canvas.configure(yscrollcommand=scrollbar.set)
 
         opts = [
             ("copilot", "🤖 Windows Copilot", "Desativa ou ativa o assistente de inteligência artificial Copilot.", self.debloat_copilot, self.restore_copilot),
