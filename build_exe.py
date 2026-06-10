@@ -18,26 +18,26 @@ def main():
             print(f"[-] Erro ao instalar PyInstaller: {e}")
             sys.exit(1)
 
-    # 2. Converter logo.jpg para logo.ico usando Pillow
+    # 2. Converter favicon.png para favicon.ico usando Pillow
     logo_ico_exists = False
-    if os.path.exists("logo.jpg"):
-        print("[*] Encontrado logo.jpg. Convertendo para formato .ico...")
+    if os.path.exists("favicon.png"):
+        print("[*] Encontrado favicon.png. Convertendo para formato .ico...")
         try:
             from PIL import Image
-            img = Image.open("logo.jpg")
+            img = Image.open("favicon.png")
             # Salvar como arquivo .ico contendo multiplos tamanhos recomendados para Windows
-            img.save("logo.ico", format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-            print("[+] logo.ico gerado com sucesso!")
+            img.save("favicon.ico", format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+            print("[+] favicon.ico gerado com sucesso!")
             logo_ico_exists = True
         except Exception as e:
-            print(f"[!] Erro ao converter logo.jpg para .ico: {e}")
+            print(f"[!] Erro ao converter favicon.png para .ico: {e}")
             print("[*] A compilaçao continuara sem icone personalizado.")
 
     # 3. Configurar o comando do PyInstaller
     # --onefile: Empacota em um unico executavel
     # --noconsole: Oculta a janela de comando do console (já que temos interface grafica)
     # --uac-admin: Solicita privilegios de Administrador automaticamente ao executar
-    # --add-data: Inclui o logo.jpg dentro do executavel
+    # --add-data: Inclui as imagens dentro do executavel
     # --name: Nome do arquivo final gerado (Tools Win V2)
     # --icon: Icone do arquivo executavel (.ico)
     command = [
@@ -47,14 +47,15 @@ def main():
         "--onefile",
         "--noconsole",
         "--uac-admin",
-        "--add-data=logo.jpg;.",
+        "--add-data=logo.png;.",
+        "--add-data=favicon.png;.",
         "--name=Tools Win V2",
         "app.py"
     ]
     
     # Se o arquivo .ico foi gerado com sucesso, adiciona ao comando do PyInstaller
-    if logo_ico_exists and os.path.exists("logo.ico"):
-        command.append("--icon=logo.ico")
+    if logo_ico_exists and os.path.exists("favicon.ico"):
+        command.append("--icon=favicon.ico")
 
     print(f"[*] Executando comando: {' '.join(command)}")
     

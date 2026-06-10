@@ -39,7 +39,7 @@ class WindowsOptimizerApp:
         # Configurar ícone da janela
         try:
             from PIL import Image, ImageTk
-            logo_path = resource_path("logo.jpg")
+            logo_path = resource_path("favicon.png")
             if os.path.exists(logo_path):
                 img = Image.open(logo_path)
                 self.win_icon = ImageTk.PhotoImage(img)
@@ -108,7 +108,7 @@ class WindowsOptimizerApp:
         # Logo da Sidebar
         try:
             from PIL import Image, ImageTk
-            logo_path = resource_path("logo.jpg")
+            logo_path = resource_path("logo.png")
             if os.path.exists(logo_path):
                 img = Image.open(logo_path)
                 img = img.resize((70, 70), Image.Resampling.LANCZOS)
