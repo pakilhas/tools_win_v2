@@ -5,7 +5,7 @@ a = Analysis(
     ['app.py'],
     pathex=[],
     binaries=[],
-    datas=[('logo.jpg', '.')],
+    datas=[('logo.png', '.'), ('favicon.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -36,5 +36,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     uac_admin=True,
-    icon=['logo.ico'],
+    icon=['favicon.ico'],
 )
