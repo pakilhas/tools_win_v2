@@ -84,6 +84,9 @@ class WindowsOptimizerApp:
         # Iniciar monitoramento de recursos
         self.update_system_stats()
 
+        # Iniciar verificação de IA de saúde após 3 segundos
+        self.root.after(3000, self.start_ai_health_check)
+
     def detect_admin_group_name(self):
         try:
             # Pega o nome localizado do grupo Administrators pelo SID S-1-5-32-544
@@ -150,7 +153,7 @@ class WindowsOptimizerApp:
 
         # Rodapé da Sidebar (Copyright e Versão)
         lbl_footer = tk.Label(
-            self.sidebar, text="Desenvolvido por Pablo Carvalho\n© 2026 | Versão 2.0.1",
+            self.sidebar, text="Desenvolvido por Pablo Carvalho\n© 2026 | Versão 2.0.5",
             fg=COLOR_MUTED, bg=COLOR_SIDEBAR, font=('Segoe UI', 8), justify='center'
         )
         lbl_footer.pack(side='bottom', pady=(5, 15))
@@ -363,6 +366,167 @@ class WindowsOptimizerApp:
         canvas.create_rectangle(0, 0, width, height, fill="#2d2d35", outline="")
         # Barra preenchida
         canvas.create_rectangle(0, 0, fill_width, height, fill=color, outline="")
+
+    def start_ai_health_check(self):
+        # Roda em thread separada para não travar a GUI
+        threading.Thread(target=self.run_ai_health_check, daemon=True).start()
+
+    def run_ai_health_check(self):
+        alerts = []
+        
+        # 1. Bateria (se for laptop)
+        try:
+            battery = psutil.sensors_battery()
+            if battery is not None:
+                if battery.percent <= 20 and not battery.power_plugged:
+                    alerts.append({
+                        "level": "MÉDIO",
+                        "title": "Bateria Fraca",
+                        "desc": f"Bateria está em {battery.percent}% e não está conectada à tomada.",
+                        "color": COLOR_WARNING
+                    })
+        except Exception:
+            pass
+
+        # 2. Espaço em Disco
+        try:
+            disk = psutil.disk_usage('C:')
+            # Menos de 10% livre ou menos de 5GB livre
+            free_gb = disk.free / (1024**3)
+            if disk.percent >= 90 or free_gb < 5:
+                alerts.append({
+                    "level": "MÉDIO",
+                    "title": "Espaço em Disco Crítico",
+                    "desc": f"Seu disco C: está {disk.percent}% cheio. Restam apenas {free_gb:.1f} GB livres.",
+                    "color": COLOR_WARNING
+                })
+        except Exception:
+            pass
+
+        # 3. CPU / RAM (Aviso Informativo)
+        try:
+            cpu_p = psutil.cpu_percent(interval=1)
+            ram = psutil.virtual_memory()
+            if cpu_p > 90:
+                alerts.append({
+                    "level": "INFORMATIVO",
+                    "title": "Uso de CPU Elevado",
+                    "desc": f"O uso do processador está em {cpu_p}%. O sistema pode apresentar lentidão.",
+                    "color": COLOR_MUTED
+                })
+            if ram.percent > 90:
+                alerts.append({
+                    "level": "INFORMATIVO",
+                    "title": "Uso de RAM Elevado",
+                    "desc": f"A memória RAM está {ram.percent}% ocupada. Feche alguns programas.",
+                    "color": COLOR_MUTED
+                })
+        except Exception:
+            pass
+
+        # 4. Saúde do Disco (S.M.A.R.T. via WMI)
+        try:
+            res = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", "Get-WmiObject -Class Win32_DiskDrive | Select-Object Status | ConvertTo-Json"],
+                capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            out = res.stdout.strip()
+            if out:
+                data = json.loads(out)
+                if isinstance(data, dict):
+                    data = [data]
+                
+                bad_disks = False
+                for d in data:
+                    if d.get("Status", "OK").upper() != "OK":
+                        bad_disks = True
+                        break
+                
+                if bad_disks:
+                    alerts.append({
+                        "level": "CRÍTICO",
+                        "title": "Saúde do Disco Comprometida",
+                        "desc": "Foi detectado um problema S.M.A.R.T. no seu HD/SSD. Risco de falha de hardware e perda de dados. Faça backup urgente!",
+                        "color": COLOR_DANGER
+                    })
+        except Exception:
+            pass
+            
+        # Se houver alertas, exibe o pop-up na thread principal
+        if alerts:
+            self.root.after(0, lambda: self.show_ai_report(alerts))
+
+    def show_ai_report(self, alerts):
+        # Cria janela de relatório
+        top = tk.Toplevel(self.root)
+        top.title("Relatório de Saúde por IA")
+        top.geometry("550x450")
+        top.configure(bg=COLOR_BG)
+        top.transient(self.root)
+        top.grab_set()
+        
+        # Centralizar
+        top.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - top.winfo_width()) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - top.winfo_height()) // 2
+        top.geometry(f"+{x}+{y}")
+        
+        lbl_title = tk.Label(top, text="🤖 Relatório de Saúde do Sistema", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI Bold', 16))
+        lbl_title.pack(pady=(20, 5))
+        
+        lbl_sub = tk.Label(top, text="A inteligência artificial detectou os seguintes pontos de atenção:", bg=COLOR_BG, fg=COLOR_MUTED, font=('Segoe UI', 10))
+        lbl_sub.pack(pady=(0, 15))
+        
+        # Canvas para scroll se houver muitos alertas
+        frame_canvas = tk.Frame(top, bg=COLOR_BG)
+        frame_canvas.pack(fill='both', expand=True, padx=20, pady=5)
+        
+        canvas = tk.Canvas(frame_canvas, bg=COLOR_BG, highlightthickness=0)
+        scroll = ttk.Scrollbar(frame_canvas, orient="vertical", command=canvas.yview)
+        scrollable = tk.Frame(canvas, bg=COLOR_BG)
+        
+        # Configurar para que o frame interno se expanda
+        canvas_window = canvas.create_window((0, 0), window=scrollable, anchor="nw")
+        
+        def configure_scrollable(e):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.itemconfig(canvas_window, width=e.width)
+
+        canvas.bind("<Configure>", configure_scrollable)
+        
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        
+        canvas.configure(yscrollcommand=scroll.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+        
+        for alert in alerts:
+            card = tk.Frame(scrollable, bg=COLOR_CARD, bd=1, highlightbackground="#2d2d35", highlightthickness=1)
+            card.pack(fill='x', pady=5, ipadx=10, ipady=10)
+            
+            header = tk.Frame(card, bg=COLOR_CARD)
+            header.pack(fill='x')
+            
+            lbl_level = tk.Label(header, text=alert["level"], bg=alert["color"], fg="#fff", font=('Segoe UI Bold', 8), padx=5, pady=2)
+            lbl_level.pack(side='left')
+            
+            lbl_t = tk.Label(header, text=alert["title"], bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI Semibold', 11))
+            lbl_t.pack(side='left', padx=10)
+            
+            lbl_d = tk.Label(card, text=alert["desc"], bg=COLOR_CARD, fg=COLOR_MUTED, font=('Segoe UI', 9), wraplength=450, justify='left')
+            lbl_d.pack(anchor='w', pady=(8, 0))
+            
+        btn_close = tk.Button(
+            top, text="Entendi", bg=COLOR_BTN_BG, fg=COLOR_TEXT, relief='flat', bd=0, font=('Segoe UI Semibold', 10),
+            padx=20, pady=8, activebackground=COLOR_ACCENT, activeforeground=COLOR_TEXT,
+            command=top.destroy
+        )
+        btn_close.pack(pady=20)
 
     # ----------------------------------------------------
     # ABA 2: CORREÇÃO & REPAROS
