@@ -1,20 +1,29 @@
 import sys
 import os
+os.makedirs(r'C:\ProgramData\ToolsWin', exist_ok=True)
 import ctypes
+
+def get_resource_path(relative_path):
+    import sys, os
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 import subprocess
 import threading
 import json
 import inventory_module
 import tkinter as tk
+import sv_ttk
 from tkinter import ttk, messagebox, simpledialog
 import psutil
 
 # Cores do Tema (Glary Utilities Palette)
-COLOR_BG = "#f1faee"           # Honeydew
-COLOR_SIDEBAR = "#1d3557"      # Oxford Navy
-COLOR_CARD = "#ffffff"         # White for contrast
-COLOR_TEXT = "#1d3557"         # Dark Navy text for readability
-COLOR_SIDEBAR_TEXT = "#f1faee" # Light text for sidebar
+COLOR_BG = "#1c1c1c"           # Honeydew
+COLOR_SIDEBAR = "#1c1c1c"      # Oxford Navy
+COLOR_CARD = "#2d2d2d"         # White for contrast
+COLOR_TEXT = "#ffffff"         # Dark Navy text for readability
+COLOR_SIDEBAR_TEXT = "#ffffff" # Light text for sidebar
 COLOR_MUTED = "#457b9d"        # Cerulean
 COLOR_ACCENT = "#457b9d"       # Cerulean
 COLOR_SUCCESS = "#a8dadc"      # Frosted Blue / Esmeralda fallback
@@ -35,7 +44,7 @@ class WindowsOptimizerApp:
         self.root = root
         self.root.title("Tools Win V2")
         self.root.geometry("1000x650")
-        self.root.configure(bg=COLOR_BG)
+        self.root
         self.root.resizable(True, True)
 
         # Configurar ícone da janela
@@ -50,33 +59,7 @@ class WindowsOptimizerApp:
             print(f"Erro ao carregar ícone da janela: {e}")
 
         # Configurar estilos do TTK
-        self.style = ttk.Style()
-        self.style.theme_use('default')
-        self.style.configure('.', background=COLOR_BG, foreground=COLOR_TEXT)
-        self.style.configure('TFrame', background=COLOR_BG)
-        self.style.configure('Card.TFrame', background=COLOR_CARD, relief='flat')
-        self.style.configure('Sidebar.TFrame', background=COLOR_SIDEBAR)
-        self.style.configure('TButton', background=COLOR_BTN_BG, foreground=COLOR_SIDEBAR_TEXT)
-        self.style.map('TButton', background=[('active', COLOR_BTN_HOVER)])
-
-        
-        # Estilo customizado para Treeview (Tabela de Usuários)
-        self.style.configure('Treeview',
-            background=COLOR_CARD,
-            foreground=COLOR_TEXT,
-            rowheight=30,
-            fieldbackground=COLOR_CARD,
-            borderwidth=0
-        )
-        self.style.map('Treeview', background=[('selected', COLOR_ACCENT)])
-        self.style.configure('Treeview.Heading',
-            background=COLOR_SIDEBAR,
-            foreground=COLOR_TEXT,
-            borderwidth=1,
-            font=('Segoe UI', 10, 'bold')
-        )
-
-        # Estado da aplicação
+                # Estilos removidos para usar sv_ttk nativamente
         self.running_thread = None
         self.admin_group_name = None
 
@@ -84,6 +67,7 @@ class WindowsOptimizerApp:
         self.detect_admin_group_name()
 
         # Layout Principal
+        sv_ttk.set_theme('dark')
         self.create_layout()
 
         # Iniciar monitoramento de recursos
@@ -104,14 +88,18 @@ class WindowsOptimizerApp:
         except Exception:
             self.admin_group_name = "Administrators"
 
+    
+    def show_sobre(self):
+        messagebox.showinfo("Sobre", "Aplicativo de Otimização e Agentes\nDesenvolvido por Pablo Carvalho, funcionário da Fred Souza.")
+
     def create_layout(self):
         # Top Bar (Toolbar Rápida e Título)
         self.topbar = ttk.Frame(self.root, style='Sidebar.TFrame', height=40)
         self.topbar.pack(side='top', fill='x')
         self.topbar.pack_propagate(False)
         
-        lbl_top_title = tk.Label(
-            self.topbar, text="Glary Utilities Clone - Tools Win V2", fg=COLOR_SIDEBAR_TEXT, bg=COLOR_SIDEBAR,
+        lbl_top_title = ttk.Label(
+            self.topbar, text="Glary Utilities Clone - Tools Win V2",
             font=('Segoe UI Semibold', 12)
         )
         lbl_top_title.pack(side='left', padx=15, pady=5)
@@ -119,22 +107,22 @@ class WindowsOptimizerApp:
         # Botões da Barra Superior
         top_btn_frame = ttk.Frame(self.topbar, style='Sidebar.TFrame')
         top_btn_frame.pack(side='right', padx=10)
+        
         for t_label in ["Sobre", "Ajuda", "Opções", "Agendar", "Atualizar"]:
-            b = tk.Button(top_btn_frame, text=t_label, bg=COLOR_SIDEBAR, fg=COLOR_SIDEBAR_TEXT, 
-                          activebackground=COLOR_ACCENT, activeforeground=COLOR_SIDEBAR_TEXT, relief='flat', bd=0, font=('Segoe UI', 9))
+            b = ttk.Button(top_btn_frame, text=t_label)
+            if t_label == "Sobre":
+                b.configure(command=self.show_sobre)
             b.pack(side='right', padx=5, pady=5)
-            b.bind("<Enter>", lambda e, btn=b: btn.configure(bg=COLOR_BTN_HOVER))
-            b.bind("<Leave>", lambda e, btn=b: btn.configure(bg=COLOR_SIDEBAR))
 
         # Status Bar (Base)
         self.statusbar = ttk.Frame(self.root, height=30)
         self.statusbar.pack(side='bottom', fill='x')
         self.statusbar.pack_propagate(False)
         
-        lbl_status_ver = tk.Label(self.statusbar, text="Versão 2.0.5", bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI', 9))
+        lbl_status_ver = ttk.Label(self.statusbar, text="Versão 2.0.5")
         lbl_status_ver.pack(side='left', padx=10)
         
-        lbl_status_prot = tk.Label(self.statusbar, text="Status da proteção: Ativada", bg=COLOR_CARD, fg=COLOR_SUCCESS, font=('Segoe UI', 9))
+        lbl_status_prot = ttk.Label(self.statusbar, text="Status da proteção: Ativada")
         lbl_status_prot.pack(side='right', padx=10)
 
         # Sidebar (Esquerda) - Navegação
@@ -150,7 +138,7 @@ class WindowsOptimizerApp:
                 img = Image.open(logo_path)
                 img = img.resize((70, 70), Image.Resampling.LANCZOS)
                 self.logo_img = ImageTk.PhotoImage(img)
-                lbl_logo = tk.Label(self.sidebar, image=self.logo_img, bg=COLOR_SIDEBAR)
+                lbl_logo = ttk.Label(self.sidebar, image=self.logo_img)
                 lbl_logo.pack(pady=(20, 5))
         except Exception as e:
             pass
@@ -159,25 +147,21 @@ class WindowsOptimizerApp:
         self.nav_buttons = {}
         tabs = [
             ("dashboard", "Visão Geral", self.show_dashboard_tab),
-            ("1click", "Manutenção em 1 Clique", self.show_1click_tab),
+            
             ("repair", "Limpeza e Reparo", self.show_repair_tab),
-            ("optimize", "Otimizar e Melhorar", self.show_optimize_tab),
+            
             ("debloat", "Privacidade e Segurança", self.show_debloat_tab),
-            ("files", "Arquivos e Pastas", self.show_files_tab),
+            
             ("system", "Ferramentas do Sistema", self.show_network_tab),
-            ("inventory", "Inventário", self.show_inventory_tab),
+            ("agents", "Agentes", self.show_agents_tab),
         ]
 
         for tab_id, label, func in tabs:
-            btn = tk.Button(
-                self.sidebar, text=label, anchor='w', bg=COLOR_SIDEBAR, fg=COLOR_SIDEBAR_TEXT,
-                activebackground=COLOR_ACCENT, activeforeground=COLOR_SIDEBAR_TEXT,
-                relief='flat', bd=0, font=('Segoe UI', 10), padx=20, pady=10,
+            btn = ttk.Button(
+                self.sidebar, text=label, 
                 command=lambda f=func, t_id=tab_id: self.select_tab(t_id, f)
             )
             btn.pack(fill='x', padx=5, pady=2)
-            btn.bind("<Enter>", lambda e, b=btn: self.on_btn_hover(b))
-            btn.bind("<Leave>", lambda e, b=btn: self.on_btn_leave(b))
             self.nav_buttons[tab_id] = btn
 
         # Rodapé da Sidebar (Informa se está como Admin)
@@ -185,11 +169,12 @@ class WindowsOptimizerApp:
         adm_text = "🟢 ADMIN" if is_adm else "🔴 USUÁRIO COMUM"
         adm_color = COLOR_SUCCESS if is_adm else COLOR_WARNING
         
-        lbl_adm = tk.Label(
-            self.sidebar, text=adm_text, fg=adm_color, bg=COLOR_SIDEBAR,
-            font=('Segoe UI Bold', 10), pady=10
+        lbl_adm = ttk.Label(
+            self.sidebar, text=adm_text
         )
         lbl_adm.pack(side='bottom', fill='x')
+        lbl_copy = ttk.Label(self.sidebar, text='© Fred Souza')
+        lbl_copy.pack(side='bottom', pady=5)
 
         # Conteúdo Principal (Direita)
         self.content_area = ttk.Frame(self.root)
@@ -200,93 +185,118 @@ class WindowsOptimizerApp:
         self.select_tab("dashboard", self.show_dashboard_tab)
 
 
-    def show_1click_tab(self):
-        lbl = tk.Label(self.content_area, text="Manutenção em 1 Clique", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 18, 'bold'))
-        lbl.pack(anchor='w', pady=(0, 20))
-        btn = tk.Button(self.content_area, text="Verificar Agora", bg=COLOR_BTN_BG, fg=COLOR_SIDEBAR_TEXT, font=('Segoe UI', 14, 'bold'), relief='flat', padx=30, pady=10)
-        btn.pack(pady=20)
-        # Checklist
-        for item in ["Limpar registro do Windows", "Reparar atalhos", "Limpar histórico de navegação", "Limpar arquivos temporários"]:
-            cb = tk.Checkbutton(self.content_area, text=item, bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 11), selectcolor=COLOR_BG, activebackground=COLOR_BG, activeforeground=COLOR_TEXT)
-            cb.pack(anchor='w', padx=20, pady=5)
-
-    def show_optimize_tab(self):
-        lbl = tk.Label(self.content_area, text="Otimizar e Melhorar", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 18, 'bold'))
-        lbl.pack(anchor='w', pady=(0, 20))
-        lbl_info = tk.Label(self.content_area, text="Módulos de otimização estarão disponíveis aqui.", bg=COLOR_BG, fg=COLOR_TEXT)
-        lbl_info.pack(anchor='w')
-
-    def show_files_tab(self):
-        lbl = tk.Label(self.content_area, text="Arquivos e Pastas", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 18, 'bold'))
-        lbl.pack(anchor='w', pady=(0, 20))
-        lbl_info = tk.Label(self.content_area, text="Gerenciador de arquivos grandes e duplicados em breve.", bg=COLOR_BG, fg=COLOR_TEXT)
-        lbl_info.pack(anchor='w')
-
-    def show_inventory_tab(self):
-        lbl = tk.Label(self.content_area, text="Integração de Inventário", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 18, 'bold'))
+    
+    def show_agents_tab(self):
+        lbl = ttk.Label(self.content_area, text="Gerenciador de Agentes", font=('Segoe UI', 16, 'bold'))
         lbl.pack(anchor='w', pady=(0, 20))
 
-        # Frame do formulário
-        form_frame = tk.Frame(self.content_area, bg=COLOR_CARD, padx=20, pady=20)
-        form_frame.pack(fill='x', pady=10)
+        # Canvas for scroll
+        canvas = tk.Canvas(self.content_area, bg=COLOR_BG, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self.content_area, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas, style='TFrame')
 
-        # Carregar config salva
-        config_path = "inventory_config.json"
-        saved_config = {}
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, "r") as f:
-                    saved_config = json.load(f)
-            except:
-                pass
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
 
-        # API URL
-        tk.Label(form_frame, text="URL da API (VPS):", bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI', 10, 'bold')).grid(row=0, column=0, sticky='w', pady=5)
-        ent_api_url = tk.Entry(form_frame, width=50, font=('Segoe UI', 10))
-        ent_api_url.grid(row=0, column=1, padx=10, pady=5)
-        ent_api_url.insert(0, saved_config.get("API_URL", "http://31.97.251.77:8090"))
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
-        # Empresa ID
-        tk.Label(form_frame, text="ID da Empresa:", bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI', 10, 'bold')).grid(row=1, column=0, sticky='w', pady=5)
-        ent_empresa_id = tk.Entry(form_frame, width=50, font=('Segoe UI', 10))
-        ent_empresa_id.grid(row=1, column=1, padx=10, pady=5)
-        ent_empresa_id.insert(0, saved_config.get("EMPRESA_ID", "4"))
+        def configure_canvas(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        canvas.bind("<Configure>", configure_canvas)
 
-        # Agent API Key
-        tk.Label(form_frame, text="Chave de Comunicação (API Key):", bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI', 10, 'bold')).grid(row=2, column=0, sticky='w', pady=5)
-        ent_api_key = tk.Entry(form_frame, width=50, font=('Segoe UI', 10))
-        ent_api_key.grid(row=2, column=1, padx=10, pady=5)
-        ent_api_key.insert(0, saved_config.get("AGENT_API_KEY", "kisjanbrh1245ta568ha1"))
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
 
-        # Botão de Ação
-        def save_and_sync():
-            url = ent_api_url.get().strip()
-            empresa = ent_empresa_id.get().strip()
-            key = ent_api_key.get().strip()
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        def draw_agent_card(parent, title, desc, icon_char, install_cmd, uninstall_cmd, is_inventory=False):
+            card = ttk.Frame(parent, style='Card.TFrame', padding=15)
+            card.pack(fill='x', pady=10, padx=5)
             
-            # Salvar config
-            with open(config_path, "w") as f:
-                json.dump({"API_URL": url, "EMPRESA_ID": empresa, "AGENT_API_KEY": key}, f)
+            header = ttk.Frame(card)
+            header.pack(fill='x')
+            ttk.Label(header, text=icon_char, font=('Segoe UI', 20)).pack(side='left', padx=(0, 10))
+            ttk.Label(header, text=title, font=('Segoe UI', 12, 'bold')).pack(side='left')
 
-            btn_sync.config(text="Sincronizando...", state='disabled')
+            ttk.Label(card, text=desc, wraplength=500).pack(anchor='w', pady=(5, 10))
             
-            def thread_sync():
-                try:
-                    res = inventory_module.send_heartbeat(url, key, empresa)
-                    self.root.after(0, lambda: messagebox.showinfo("Sucesso", "Inventário enviado com sucesso para a API!"))
-                except Exception as e:
-                    self.root.after(0, lambda: messagebox.showerror("Erro de Sincronização", f"Ocorreu um erro ao enviar:\n{e}"))
-                finally:
-                    self.root.after(0, lambda: btn_sync.config(text="Salvar e Sincronizar Agora", state='normal'))
+            btn_frame = ttk.Frame(card)
+            btn_frame.pack(anchor='w')
 
-            threading.Thread(target=thread_sync, daemon=True).start()
+            if is_inventory:
+                config_path = r"C:\ProgramData\ToolsWin\inventory_config.json"
+                saved_config = {}
+                if os.path.exists(config_path):
+                    try:
+                        with open(config_path, "r") as f:
+                            saved_config = json.load(f)
+                    except:
+                        pass
 
-        btn_sync = tk.Button(self.content_area, text="Salvar e Sincronizar Agora", bg=COLOR_BTN_BG, fg=COLOR_SIDEBAR_TEXT, 
-                             font=('Segoe UI', 12, 'bold'), relief='flat', padx=20, pady=10, command=save_and_sync)
-        btn_sync.pack(pady=20)
-        btn_sync.bind("<Enter>", lambda e: btn_sync.configure(bg=COLOR_BTN_HOVER))
-        btn_sync.bind("<Leave>", lambda e: btn_sync.configure(bg=COLOR_BTN_BG))
+                conf_frame = ttk.Frame(card)
+                conf_frame.pack(fill='x', pady=5)
+                
+                ttk.Label(conf_frame, text="ID Empresa:").grid(row=0, column=0, sticky='w')
+                ent_id = ttk.Entry(conf_frame, width=10)
+                ent_id.grid(row=0, column=1, padx=5)
+                ent_id.insert(0, saved_config.get("EMPRESA_ID", "4"))
 
+                def save_and_install():
+                    with open(config_path, "w") as f:
+                        json.dump({
+                            "API_URL": "http://31.97.251.77:8090", 
+                            "EMPRESA_ID": ent_id.get(), 
+                            "AGENT_API_KEY": "kisjanbrh1245ta568ha1"
+                        }, f)
+                    self.run_raw_cmd(install_cmd)
+                    subprocess.Popen([sys.executable, "--run-inventory"], creationflags=subprocess.CREATE_NO_WINDOW)
+                    messagebox.showinfo("Ação Concluída", "Inventário configurado, executado e agendado com sucesso!")
+
+                ttk.Button(btn_frame, text="Instalar Inventário", command=save_and_install).pack(side='left', padx=(0, 5))
+                ttk.Button(btn_frame, text="Desinstalar", command=lambda c=uninstall_cmd: [self.run_raw_cmd(c), messagebox.showinfo("Ação Concluída", "O comando de desinstalação foi enviado ao sistema em segundo plano.")]).pack(side='left')
+            else:
+                
+                def run_and_trigger(c, is_cs):
+                    self.run_raw_cmd(c)
+                    if is_cs:
+                        subprocess.Popen([sys.executable, "--run-clearsite"], creationflags=subprocess.CREATE_NO_WINDOW)
+                    elif "--run-wallpulse-install" in str(c):
+                        pass # Wallpulse runs on install via ps1 logic
+                    messagebox.showinfo("Ação Concluída", "O comando de instalação foi enviado ao sistema em segundo plano.")
+                    
+                ttk.Button(btn_frame, text=f"Instalar {title}", command=lambda c=install_cmd, is_cs=(title=="Clear Site"): run_and_trigger(c, is_cs)).pack(side='left', padx=(0, 5))
+                ttk.Button(btn_frame, text="Desinstalar", command=lambda c=uninstall_cmd: [self.run_raw_cmd(c), messagebox.showinfo("Ação Concluída", "O comando de desinstalação foi enviado ao sistema em segundo plano.")]).pack(side='left')
+
+        draw_agent_card(
+            scrollable_frame, "Inventário", 
+            "Coleta informações de hardware e software e envia para o servidor.", 
+            "⚙", 
+            ['schtasks', '/create', '/tn', 'ToolsWin_Inventory', '/tr', '\"{}\" --run-inventory'.format(sys.executable), '/sc', 'onlogon', '/ru', 'SYSTEM', '/f'], 
+            ['schtasks', '/delete', '/tn', 'ToolsWin_Inventory', '/f'],
+            is_inventory=True
+        )
+        
+        draw_agent_card(
+            scrollable_frame, "Wallpulse", 
+            "Monitoramento ativo e comunicação em tempo real.", 
+            "💠", 
+            [sys.executable, '--run-wallpulse-install'], 
+            [sys.executable, '--run-wallpulse-uninstall']
+        )
+        
+        draw_agent_card(
+            scrollable_frame, "Clear Site", 
+            "Ferramenta de limpeza automática de navegação.", 
+            "🧹", 
+            ['schtasks', '/create', '/tn', 'ToolsWin_ClearSite', '/tr', '\"{}\" --run-clearsite'.format(sys.executable), '/sc', 'daily', '/st', '12:00', '/ru', 'SYSTEM', '/f'], 
+            ['schtasks', '/delete', '/tn', 'ToolsWin_ClearSite', '/f']
+        )
     def select_tab(self, tab_id, show_func):
         if self.active_tab_id == tab_id:
             return
@@ -297,10 +307,10 @@ class WindowsOptimizerApp:
 
         # Resetar botões de navegação
         for tid, btn in self.nav_buttons.items():
-            btn.configure(bg=COLOR_SIDEBAR, fg=COLOR_SIDEBAR_TEXT)
+            btn
 
         # Destacar o botão ativo
-        self.nav_buttons[tab_id].configure(bg=COLOR_ACCENT, fg=COLOR_SIDEBAR_TEXT)
+        self.nav_buttons[tab_id]
         self.active_tab_id = tab_id
 
         # Carregar a nova aba
@@ -311,13 +321,13 @@ class WindowsOptimizerApp:
         for tid, b in self.nav_buttons.items():
             if b == btn and tid == self.active_tab_id:
                 return
-        btn.configure(bg="#2d2d35")
+        btn
 
     def on_btn_leave(self, btn):
         for tid, b in self.nav_buttons.items():
             if b == btn and tid == self.active_tab_id:
                 return
-        btn.configure(bg=COLOR_SIDEBAR)
+        btn
 
     # ----------------------------------------------------
     # ABA 1: DASHBOARD
@@ -348,13 +358,32 @@ class WindowsOptimizerApp:
         canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
 
         canvas.pack(side="left", fill="both", expand=True)
+
+        # --- Injection for Inventory Indicator ---
+        import json
+        config_path = r"C:\ProgramData\ToolsWin\inventory_config.json"
+        emp_id = "N/A"
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    emp_id = json.load(f).get("EMPRESA_ID", "N/A")
+            except:
+                pass
+        res_check = subprocess.run('schtasks /query /tn "ToolsWin_Inventory"', shell=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        is_inventoriada = (res_check.returncode == 0)
+        
+        status_text = f"✅ MÁQUINA INVENTARIADA (Empresa ID: {emp_id})" if is_inventoriada else "❌ MÁQUINA NÃO INVENTARIADA"
+        
+        lbl_dash_inv_status = ttk.Label(scrollable_frame, text=status_text)
+        lbl_dash_inv_status.pack(anchor='w', padx=20, pady=(20, 10))
+        # ----------------------------------------
+
         scrollbar.pack(side="right", fill="y")
         canvas.configure(yscrollcommand=scrollbar.set)
 
         # Título
-        lbl_title = tk.Label(
-            scrollable_frame, text="Painel do Sistema", fg=COLOR_TEXT, bg=COLOR_BG,
-            font=('Segoe UI Semibold', 18), anchor='w'
+        lbl_title = ttk.Label(
+            scrollable_frame, text="Painel do Sistema", anchor='w'
         )
         lbl_title.pack(fill='x', pady=(0, 15))
 
@@ -366,8 +395,8 @@ class WindowsOptimizerApp:
         # Card CPU
         card_cpu = ttk.Frame(stats_frame, style='Card.TFrame', padding=15)
         card_cpu.grid(row=0, column=0, padx=(0, 10), sticky='nsew')
-        tk.Label(card_cpu, text="Processador (CPU)", fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 10)).pack(anchor='w')
-        self.lbl_cpu_val = tk.Label(card_cpu, text="0%", fg=COLOR_TEXT, bg=COLOR_CARD, font=('Segoe UI Semibold', 22))
+        ttk.Label(card_cpu, text="Processador (CPU)").pack(anchor='w')
+        self.lbl_cpu_val = ttk.Label(card_cpu, text="0%")
         self.lbl_cpu_val.pack(anchor='w', pady=5)
         self.canvas_cpu = tk.Canvas(card_cpu, height=8, bg="#2d2d35", highlightthickness=0, bd=0)
         self.canvas_cpu.pack(fill='x', pady=5)
@@ -375,8 +404,8 @@ class WindowsOptimizerApp:
         # Card RAM
         card_ram = ttk.Frame(stats_frame, style='Card.TFrame', padding=15)
         card_ram.grid(row=0, column=1, padx=5, sticky='nsew')
-        tk.Label(card_ram, text="Memória RAM", fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 10)).pack(anchor='w')
-        self.lbl_ram_val = tk.Label(card_ram, text="0 / 0 GB (0%)", fg=COLOR_TEXT, bg=COLOR_CARD, font=('Segoe UI Semibold', 16))
+        ttk.Label(card_ram, text="Memória RAM").pack(anchor='w')
+        self.lbl_ram_val = ttk.Label(card_ram, text="0 / 0 GB (0%)")
         self.lbl_ram_val.pack(anchor='w', pady=10)
         self.canvas_ram = tk.Canvas(card_ram, height=8, bg="#2d2d35", highlightthickness=0, bd=0)
         self.canvas_ram.pack(fill='x', pady=5)
@@ -384,8 +413,8 @@ class WindowsOptimizerApp:
         # Card Disco
         card_disk = ttk.Frame(stats_frame, style='Card.TFrame', padding=15)
         card_disk.grid(row=0, column=2, padx=(10, 0), sticky='nsew')
-        tk.Label(card_disk, text="Disco Principal (C:)", fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 10)).pack(anchor='w')
-        self.lbl_disk_val = tk.Label(card_disk, text="0 / 0 GB (0%)", fg=COLOR_TEXT, bg=COLOR_CARD, font=('Segoe UI Semibold', 16))
+        ttk.Label(card_disk, text="Disco Principal (C:)").pack(anchor='w')
+        self.lbl_disk_val = ttk.Label(card_disk, text="0 / 0 GB (0%)")
         self.lbl_disk_val.pack(anchor='w', pady=10)
         self.canvas_disk = tk.Canvas(card_disk, height=8, bg="#2d2d35", highlightthickness=0, bd=0)
         self.canvas_disk.pack(fill='x', pady=5)
@@ -394,8 +423,8 @@ class WindowsOptimizerApp:
         quick_frame = ttk.Frame(scrollable_frame, style='Card.TFrame', padding=20)
         quick_frame.pack(fill='both', expand=True, pady=(20, 0))
 
-        tk.Label(
-            quick_frame, text="Ações Rápidas de Otimização", fg=COLOR_TEXT, bg=COLOR_CARD,
+        ttk.Label(
+            quick_frame, text="Ações Rápidas de Otimização",
             font=('Segoe UI Semibold', 13)
         ).pack(anchor='w', pady=(0, 15))
 
@@ -419,23 +448,22 @@ class WindowsOptimizerApp:
             row = i // 2
             col = i % 2
             
-            frame_act = tk.Frame(btn_container, bg=COLOR_CARD, bd=1, highlightbackground="#2d2d35", highlightthickness=1)
+            frame_act = ttk.Frame(btn_container)
             frame_act.grid(row=row, column=col, padx=10, pady=10, sticky='nsew')
             
-            lbl_title = tk.Label(frame_act, text=title, fg=COLOR_TEXT, bg=COLOR_CARD, font=('Segoe UI Bold', 11))
+            lbl_title = ttk.Label(frame_act, text=title)
             lbl_title.pack(anchor='w', padx=15, pady=(10, 2))
             
-            lbl_desc = tk.Label(frame_act, text=desc, fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 9), justify='left', wraplength=300)
+            lbl_desc = ttk.Label(frame_act, text=desc, wraplength=300)
             lbl_desc.pack(anchor='w', padx=15, pady=(0, 10))
             
-            btn_act = tk.Button(
-                frame_act, text="Executar", bg=COLOR_BTN_BG, fg=COLOR_TEXT, relief='flat', bd=0,
-                font=('Segoe UI Semibold', 9), padx=15, pady=5, activebackground=COLOR_ACCENT, activeforeground=COLOR_TEXT,
+            btn_act = ttk.Button(
+                frame_act, text="Executar",
                 command=func
             )
             btn_act.pack(anchor='e', padx=15, pady=(0, 15))
-            btn_act.bind("<Enter>", lambda e, b=btn_act: b.configure(bg=COLOR_ACCENT))
-            btn_act.bind("<Leave>", lambda e, b=btn_act: b.configure(bg=COLOR_BTN_BG))
+            btn_act.bind("<Enter>", lambda e, b=btn_act: b)
+            btn_act.bind("<Leave>", lambda e, b=btn_act: b)
 
     def update_system_stats(self):
         if self.active_tab_id == "dashboard":
@@ -571,7 +599,7 @@ class WindowsOptimizerApp:
         top = tk.Toplevel(self.root)
         top.title("Relatório de Saúde por IA")
         top.geometry("550x450")
-        top.configure(bg=COLOR_BG)
+        top
         top.transient(self.root)
         top.grab_set()
         
@@ -581,19 +609,19 @@ class WindowsOptimizerApp:
         y = self.root.winfo_y() + (self.root.winfo_height() - top.winfo_height()) // 2
         top.geometry(f"+{x}+{y}")
         
-        lbl_title = tk.Label(top, text="🤖 Relatório de Saúde do Sistema", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI Bold', 16))
+        lbl_title = ttk.Label(top, text="🤖 Relatório de Saúde do Sistema")
         lbl_title.pack(pady=(20, 5))
         
-        lbl_sub = tk.Label(top, text="A inteligência artificial detectou os seguintes pontos de atenção:", bg=COLOR_BG, fg=COLOR_MUTED, font=('Segoe UI', 10))
+        lbl_sub = ttk.Label(top, text="A inteligência artificial detectou os seguintes pontos de atenção:")
         lbl_sub.pack(pady=(0, 15))
         
         # Canvas para scroll se houver muitos alertas
-        frame_canvas = tk.Frame(top, bg=COLOR_BG)
+        frame_canvas = ttk.Frame(top)
         frame_canvas.pack(fill='both', expand=True, padx=20, pady=5)
         
         canvas = tk.Canvas(frame_canvas, bg=COLOR_BG, highlightthickness=0)
         scroll = ttk.Scrollbar(frame_canvas, orient="vertical", command=canvas.yview)
-        scrollable = tk.Frame(canvas, bg=COLOR_BG)
+        scrollable = ttk.Frame(canvas)
         
         # Configurar para que o frame interno se expanda
         canvas_window = canvas.create_window((0, 0), window=scrollable, anchor="nw")
@@ -613,27 +641,31 @@ class WindowsOptimizerApp:
         canvas.configure(yscrollcommand=scroll.set)
         
         canvas.pack(side="left", fill="both", expand=True)
+
+
         scroll.pack(side="right", fill="y")
         
+        if not alerts:
+            alerts.append({"level": "OK", "title": "Sistema Saudável", "desc": "A IA não encontrou nenhum problema crítico no seu sistema neste momento."})
+        
         for alert in alerts:
-            card = tk.Frame(scrollable, bg=COLOR_CARD, bd=1, highlightbackground="#2d2d35", highlightthickness=1)
+            card = ttk.Frame(scrollable)
             card.pack(fill='x', pady=5, ipadx=10, ipady=10)
             
-            header = tk.Frame(card, bg=COLOR_CARD)
+            header = ttk.Frame(card)
             header.pack(fill='x')
             
-            lbl_level = tk.Label(header, text=alert["level"], bg=alert["color"], fg="#fff", font=('Segoe UI Bold', 8), padx=5, pady=2)
+            lbl_level = ttk.Label(header, text=alert["level"])
             lbl_level.pack(side='left')
             
-            lbl_t = tk.Label(header, text=alert["title"], bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI Semibold', 11))
+            lbl_t = ttk.Label(header, text=alert["title"])
             lbl_t.pack(side='left', padx=10)
             
-            lbl_d = tk.Label(card, text=alert["desc"], bg=COLOR_CARD, fg=COLOR_MUTED, font=('Segoe UI', 9), wraplength=450, justify='left')
+            lbl_d = ttk.Label(card, text=alert["desc"], wraplength=450)
             lbl_d.pack(anchor='w', pady=(8, 0))
             
-        btn_close = tk.Button(
-            top, text="Entendi", bg=COLOR_BTN_BG, fg=COLOR_TEXT, relief='flat', bd=0, font=('Segoe UI Semibold', 10),
-            padx=20, pady=8, activebackground=COLOR_ACCENT, activeforeground=COLOR_TEXT,
+        btn_close = ttk.Button(
+            top, text="Entendi",
             command=top.destroy
         )
         btn_close.pack(pady=20)
@@ -642,9 +674,8 @@ class WindowsOptimizerApp:
     # ABA 2: CORREÇÃO & REPAROS
     # ----------------------------------------------------
     def show_repair_tab(self):
-        lbl_title = tk.Label(
-            self.content_area, text="Ferramentas de Correção do Windows", fg=COLOR_TEXT, bg=COLOR_BG,
-            font=('Segoe UI Semibold', 18), anchor='w'
+        lbl_title = ttk.Label(
+            self.content_area, text="Ferramentas de Correção do Windows", anchor='w'
         )
         lbl_title.pack(fill='x', pady=(0, 15))
 
@@ -661,20 +692,19 @@ class WindowsOptimizerApp:
         ]
 
         for i, (name, desc, cmd) in enumerate(rep_tools):
-            btn_tool = tk.Button(
-                buttons_frame, text=name, bg=COLOR_BTN_BG, fg=COLOR_TEXT, relief='flat', bd=0,
-                font=('Segoe UI Semibold', 10), pady=10, activebackground=COLOR_ACCENT, activeforeground=COLOR_TEXT,
+            btn_tool = ttk.Button(
+                buttons_frame, text=name,
                 command=lambda c=cmd, n=name: self.run_system_tool(c, n)
             )
             btn_tool.pack(fill='x', pady=4)
-            btn_tool.bind("<Enter>", lambda e, b=btn_tool: b.configure(bg=COLOR_ACCENT))
-            btn_tool.bind("<Leave>", lambda e, b=btn_tool: b.configure(bg=COLOR_BTN_BG))
+            btn_tool.bind("<Enter>", lambda e, b=btn_tool: b)
+            btn_tool.bind("<Leave>", lambda e, b=btn_tool: b)
 
         # Console Log
         log_frame = ttk.Frame(self.content_area, style='Card.TFrame', padding=15)
         log_frame.pack(fill='both', expand=True, pady=(15, 0))
 
-        tk.Label(log_frame, text="Log de Execução", fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI Semibold', 11)).pack(anchor='w', pady=(0, 5))
+        ttk.Label(log_frame, text="Log de Execução").pack(anchor='w', pady=(0, 5))
         
         # Scrolled Text Box
         self.text_log = tk.Text(
@@ -684,9 +714,7 @@ class WindowsOptimizerApp:
         self.text_log.pack(fill='both', expand=True)
         self.text_log.configure(state='disabled')
 
-    def log(self, message):
-        self.text_log.configure(state='normal')
-        self.text_log.insert(tk.END, message)
+
         self.text_log.see(tk.END)
         self.text_log.configure(state='disabled')
 
@@ -719,20 +747,14 @@ class WindowsOptimizerApp:
             self.running_thread.start()
 
     def run_raw_cmd(self, command):
+        import subprocess
         try:
-            process = subprocess.Popen(
-                command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                shell=True, text=True, bufsize=1, encoding='utf-8', errors='replace',
-                creationflags=subprocess.CREATE_NO_WINDOW
-            )
-            for line in process.stdout:
-                self.root.after(0, self.log, line)
-            
-            process.communicate()
-            rc = process.returncode
-            self.root.after(0, self.log, f"\nProcesso concluído com código: {rc}\n")
-        except Exception as e:
-            self.root.after(0, self.log, f"Erro na execução do comando: {e}\n")
+            if isinstance(command, str):
+                subprocess.Popen(command, shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                subprocess.Popen(command, shell=False, creationflags=subprocess.CREATE_NO_WINDOW)
+        except Exception:
+            pass
 
     def reset_windows_update_flow(self):
         commands = [
@@ -765,23 +787,21 @@ class WindowsOptimizerApp:
     # ABA 3: DESATIVAR IA & PRIVACIDADE
     # ----------------------------------------------------
     def show_debloat_tab(self):
-        lbl_title = tk.Label(
-            self.content_area, text="Gerenciador de IA, Privacidade & Debloat", fg=COLOR_TEXT, bg=COLOR_BG,
-            font=('Segoe UI Semibold', 18), anchor='w'
+        lbl_title = ttk.Label(
+            self.content_area, text="Gerenciador de IA, Privacidade & Debloat", anchor='w'
         )
         lbl_title.pack(fill='x', pady=(0, 15))
 
         container = ttk.Frame(self.content_area, style='Card.TFrame', padding=15)
         container.pack(fill='both', expand=True)
 
-        tk.Label(
-            container, text="Gerencie individualmente as opções de telemetria, IA e navegadores. Use os botões 'Desativar' ou 'Ativar' correspondentes.", 
-            fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI Semibold', 10), wraplength=700, justify='left'
+        ttk.Label(
+            container, text="Gerencie individualmente as opções de telemetria, IA e navegadores. Use os botões 'Desativar' ou 'Ativar' correspondentes.", wraplength=700
         ).pack(anchor='w', pady=(0, 15))
 
         canvas = tk.Canvas(container, bg=COLOR_CARD, highlightthickness=0)
         scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        scroll_frame = tk.Frame(canvas, bg=COLOR_CARD)
+        scroll_frame = ttk.Frame(canvas)
 
         scroll_frame.bind(
             "<Configure>",
@@ -801,6 +821,8 @@ class WindowsOptimizerApp:
         canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
 
         canvas.pack(side="left", fill="both", expand=True)
+
+
         scrollbar.pack(side="right", fill="y")
         canvas.configure(yscrollcommand=scrollbar.set)
 
@@ -818,34 +840,32 @@ class WindowsOptimizerApp:
         self.status_labels = {}
 
         for i, (key, title, desc, df_func, rf_func) in enumerate(opts):
-            row_frame = tk.Frame(scroll_frame, bg=COLOR_CARD, bd=0, highlightbackground="#2d2d35", highlightthickness=1)
+            row_frame = ttk.Frame(scroll_frame)
             row_frame.pack(fill='x', pady=4, ipady=4)
             
-            text_frame = tk.Frame(row_frame, bg=COLOR_CARD)
+            text_frame = ttk.Frame(row_frame)
             text_frame.pack(side='left', fill='x', expand=True, padx=15, pady=5)
             
-            lbl_title = tk.Label(text_frame, text=title, fg=COLOR_TEXT, bg=COLOR_CARD, font=('Segoe UI Bold', 11), anchor='w')
+            lbl_title = ttk.Label(text_frame, text=title, anchor='w')
             lbl_title.pack(fill='x')
-            lbl_desc = tk.Label(text_frame, text=desc, fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 9), anchor='w')
+            lbl_desc = ttk.Label(text_frame, text=desc, anchor='w')
             lbl_desc.pack(fill='x')
             
-            lbl_status = tk.Label(row_frame, text="Carregando...", fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI Bold', 10), width=15, anchor='center')
+            lbl_status = ttk.Label(row_frame, text="Carregando...", width=15, anchor='center')
             lbl_status.pack(side='left', padx=10)
             self.status_labels[key] = lbl_status
             
-            btn_frame = tk.Frame(row_frame, bg=COLOR_CARD)
+            btn_frame = ttk.Frame(row_frame)
             btn_frame.pack(side='right', padx=15)
             
-            btn_disable = tk.Button(
-                btn_frame, text="Desativar", bg="#ef4444", fg=COLOR_TEXT, relief='flat', bd=0,
-                font=('Segoe UI Semibold', 9), width=10, activebackground="#dc2626", activeforeground=COLOR_TEXT,
+            btn_disable = ttk.Button(
+                btn_frame, text="Desativar", width=10,
                 command=lambda f=df_func, k=key, n=title: self.execute_single_action(f, k, f"Desativar {n}")
             )
             btn_disable.pack(side='left', padx=3)
             
-            btn_enable = tk.Button(
-                btn_frame, text="Ativar", bg="#10b981", fg=COLOR_TEXT, relief='flat', bd=0,
-                font=('Segoe UI Semibold', 9), width=10, activebackground="#059669", activeforeground=COLOR_TEXT,
+            btn_enable = ttk.Button(
+                btn_frame, text="Ativar", width=10,
                 command=lambda f=rf_func, k=key, n=title: self.execute_single_action(f, k, f"Ativar {n}")
             )
             btn_enable.pack(side='left', padx=3)
@@ -884,7 +904,7 @@ class WindowsOptimizerApp:
         for key, lbl in self.status_labels.items():
             txt = self.get_status_text(key)
             color = COLOR_SUCCESS if txt in ["Ativo", "Ativos", "Instalado", "Liberado"] else COLOR_DANGER
-            lbl.configure(text=txt, fg=color)
+            lbl
 
     def execute_single_action(self, action_func, key, action_name):
         if not is_admin():
@@ -986,9 +1006,8 @@ class WindowsOptimizerApp:
     # ABA 4: GERENCIADOR DE USUÁRIOS
     # ----------------------------------------------------
     def show_users_tab(self):
-        lbl_title = tk.Label(
-            self.content_area, text="Gerenciador de Usuários do Windows", fg=COLOR_TEXT, bg=COLOR_BG,
-            font=('Segoe UI Semibold', 18), anchor='w'
+        lbl_title = ttk.Label(
+            self.content_area, text="Gerenciador de Usuários do Windows", anchor='w'
         )
         lbl_title.pack(fill='x', pady=(0, 15))
 
@@ -1019,42 +1038,37 @@ class WindowsOptimizerApp:
         actions_frame.pack(side='right', fill='y')
         actions_frame.pack_propagate(False)
 
-        tk.Label(actions_frame, text="Ações do Usuário", fg=COLOR_TEXT, bg=COLOR_CARD, font=('Segoe UI Bold', 11)).pack(anchor='w', pady=(0, 15))
+        ttk.Label(actions_frame, text="Ações do Usuário").pack(anchor='w', pady=(0, 15))
 
-        btn_pass = tk.Button(
-            actions_frame, text="🔑 Trocar Senha", bg=COLOR_BTN_BG, fg=COLOR_TEXT, relief='flat', bd=0,
-            font=('Segoe UI Semibold', 10), pady=8, activebackground=COLOR_ACCENT, activeforeground=COLOR_TEXT,
+        btn_pass = ttk.Button(
+            actions_frame, text="🔑 Trocar Senha",
             command=self.user_change_password
         )
         btn_pass.pack(fill='x', pady=4)
 
-        self.btn_toggle_admin = tk.Button(
-            actions_frame, text="🛡️ Alternar Admin", bg=COLOR_BTN_BG, fg=COLOR_TEXT, relief='flat', bd=0,
-            font=('Segoe UI Semibold', 10), pady=8, activebackground=COLOR_ACCENT, activeforeground=COLOR_TEXT,
+        self.btn_toggle_admin = ttk.Button(
+            actions_frame, text="🛡️ Alternar Admin",
             command=self.user_toggle_admin
         )
         self.btn_toggle_admin.pack(fill='x', pady=4)
 
-        self.btn_toggle_status = tk.Button(
-            actions_frame, text="🔌 Ativar/Desativar", bg=COLOR_BTN_BG, fg=COLOR_TEXT, relief='flat', bd=0,
-            font=('Segoe UI Semibold', 10), pady=8, activebackground=COLOR_ACCENT, activeforeground=COLOR_TEXT,
+        self.btn_toggle_status = ttk.Button(
+            actions_frame, text="🔌 Ativar/Desativar",
             command=self.user_toggle_status
         )
         self.btn_toggle_status.pack(fill='x', pady=4)
 
         # Separador de Ações Globais
-        tk.Frame(actions_frame, height=1, bg="#2d2d35").pack(fill='x', pady=15)
+        ttk.Frame(actions_frame, height=1).pack(fill='x', pady=15)
 
-        btn_create = tk.Button(
-            actions_frame, text="➕ Novo Usuário", bg=COLOR_SUCCESS, fg=COLOR_TEXT, relief='flat', bd=0,
-            font=('Segoe UI Semibold', 10), pady=8, activebackground=COLOR_SUCCESS, activeforeground=COLOR_TEXT,
+        btn_create = ttk.Button(
+            actions_frame, text="➕ Novo Usuário",
             command=self.user_create
         )
         btn_create.pack(fill='x', pady=4)
 
-        btn_delete = tk.Button(
-            actions_frame, text="❌ Excluir Usuário", bg=COLOR_DANGER, fg=COLOR_TEXT, relief='flat', bd=0,
-            font=('Segoe UI Semibold', 10), pady=8, activebackground=COLOR_DANGER, activeforeground=COLOR_TEXT,
+        btn_delete = ttk.Button(
+            actions_frame, text="❌ Excluir Usuário",
             command=self.user_delete
         )
         btn_delete.pack(fill='x', pady=4)
@@ -1263,9 +1277,8 @@ class WindowsOptimizerApp:
     # ABA 5: FERRAMENTAS DE REDE
     # ----------------------------------------------------
     def show_network_tab(self):
-        lbl_title = tk.Label(
-            self.content_area, text="Ferramentas de Rede", fg=COLOR_TEXT, bg=COLOR_BG,
-            font=('Segoe UI Semibold', 18), anchor='w'
+        lbl_title = ttk.Label(
+            self.content_area, text="Ferramentas de Rede", anchor='w'
         )
         lbl_title.pack(fill='x', pady=(0, 15))
 
@@ -1276,13 +1289,13 @@ class WindowsOptimizerApp:
         dns_frame = ttk.Frame(container, style='Card.TFrame', padding=15)
         dns_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
 
-        tk.Label(dns_frame, text="⚡ Alterar DNS do Adaptador", fg=COLOR_TEXT, bg=COLOR_CARD, font=('Segoe UI Bold', 12)).pack(anchor='w', pady=(0, 10))
+        ttk.Label(dns_frame, text="⚡ Alterar DNS do Adaptador").pack(anchor='w', pady=(0, 10))
         
-        tk.Label(dns_frame, text="Selecione o Adaptador de Rede:", fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 9)).pack(anchor='w')
+        ttk.Label(dns_frame, text="Selecione o Adaptador de Rede:").pack(anchor='w')
         self.combo_adapters = ttk.Combobox(dns_frame, state='readonly', font=('Segoe UI', 10))
         self.combo_adapters.pack(fill='x', pady=5)
 
-        tk.Label(dns_frame, text="Selecione o Servidor DNS:", fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 9)).pack(anchor='w', pady=(10, 0))
+        ttk.Label(dns_frame, text="Selecione o Servidor DNS:").pack(anchor='w', pady=(10, 0))
         self.combo_dns = ttk.Combobox(
             dns_frame, state='readonly', font=('Segoe UI', 10),
             values=["Cloudflare DNS (1.1.1.1 / 1.0.0.1)", "Google DNS (8.8.8.8 / 8.8.4.4)", "Restaurar Padrão (Obter DHCP)"]
@@ -1290,9 +1303,8 @@ class WindowsOptimizerApp:
         self.combo_dns.set("Cloudflare DNS (1.1.1.1 / 1.0.0.1)")
         self.combo_dns.pack(fill='x', pady=5)
 
-        btn_apply_dns = tk.Button(
-            dns_frame, text="Aplicar DNS", bg=COLOR_ACCENT, fg=COLOR_TEXT, relief='flat', bd=0,
-            font=('Segoe UI Semibold', 10), pady=10, activebackground=COLOR_BTN_HOVER, activeforeground=COLOR_TEXT,
+        btn_apply_dns = ttk.Button(
+            dns_frame, text="Aplicar DNS",
             command=self.network_apply_dns
         )
         btn_apply_dns.pack(fill='x', pady=(20, 0))
@@ -1302,19 +1314,17 @@ class WindowsOptimizerApp:
         ping_frame.pack(side='right', fill='both')
         ping_frame.pack_propagate(False)
 
-        tk.Label(ping_frame, text="📡 Testar Latência (Ping)", fg=COLOR_TEXT, bg=COLOR_CARD, font=('Segoe UI Bold', 12)).pack(anchor='w', pady=(0, 10))
+        ttk.Label(ping_frame, text="📡 Testar Latência (Ping)").pack(anchor='w', pady=(0, 10))
 
-        tk.Label(ping_frame, text="Endereço de Destino (Ex: google.com):", fg=COLOR_MUTED, bg=COLOR_CARD, font=('Segoe UI', 9)).pack(anchor='w')
-        self.entry_ping = tk.Entry(
-            ping_frame, bg="#18181b", fg=COLOR_TEXT, insertbackground=COLOR_TEXT,
-            font=('Segoe UI', 10), borderwidth=0, highlightthickness=1, highlightbackground="#2d2d35"
+        ttk.Label(ping_frame, text="Endereço de Destino (Ex: google.com):").pack(anchor='w')
+        self.entry_ping = ttk.Entry(
+            ping_frame, insertbackground=COLOR_TEXT, borderwidth=0
         )
         self.entry_ping.insert(0, "1.1.1.1")
         self.entry_ping.pack(fill='x', pady=5, ipady=5)
 
-        btn_ping = tk.Button(
-            ping_frame, text="Iniciar Teste", bg=COLOR_BTN_BG, fg=COLOR_TEXT, relief='flat', bd=0,
-            font=('Segoe UI Semibold', 10), pady=8, activebackground=COLOR_ACCENT, activeforeground=COLOR_TEXT,
+        btn_ping = ttk.Button(
+            ping_frame, text="Iniciar Teste",
             command=self.network_run_ping
         )
         btn_ping.pack(fill='x', pady=10)
@@ -1764,7 +1774,150 @@ def elevate():
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
     sys.exit()
 
+
 if __name__ == "__main__":
+    import sys
+    import subprocess
+    import os
+
+    if "--run-wallpulse-install" in sys.argv:
+        try:
+            import os
+            import subprocess
+            base_dir = r"C:\ProgramData\Empresa\WallpaperAgent"
+            os.makedirs(base_dir, exist_ok=True)
+
+            ps1_content = r"""$ImageUrl = "http://31.97.251.77:8085/wallpaper.jpg"
+
+$BaseDir = "C:\ProgramData\Empresa\WallpaperAgent"
+$DateFile = "$BaseDir\last_hash.txt"
+$LogFile = "$BaseDir\agent.log"
+$WallpaperCache = "$BaseDir\wallpaper.jpg"
+$TempFile = "$BaseDir\temp_wallpaper.jpg"
+
+if (!(Test-Path $BaseDir)) { New-Item -ItemType Directory -Force -Path $BaseDir | Out-Null }
+
+function Write-Log { param($m) "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $m" | Out-File -Append $LogFile }
+
+function Set-Wallpaper {
+    param($ImagePath)
+    if (!(Test-Path $ImagePath)) { Write-Log "ERRO: Imagem em cache no encontrada!"; return }
+    Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name Wallpaper -Value $ImagePath
+    Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallpaperStyle -Value "2"
+    Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name TileWallpaper -Value "0"
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Wallpaper {
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+}
+"@
+    [Wallpaper]::SystemParametersInfo(0x0014, 0, $ImagePath, 0x0001 -bor 0x0002)
+    Write-Log ">>> Wallpaper aplicado: $ImagePath"
+}
+
+while ($true) {
+    try {
+        Write-Log "=== INCIO ==="
+        Write-Log "Baixando imagem de: $ImageUrl"
+
+        Invoke-WebRequest -Uri $ImageUrl -OutFile $TempFile -UseBasicParsing -ErrorAction Stop
+
+        if (!(Test-Path $TempFile)) {
+            Write-Log "ERRO: Falha ao baixar a imagem!"
+        } else {
+            $CurrentHash = (Get-FileHash -Path $TempFile -Algorithm MD5).Hash
+            Write-Log "Hash da imagem baixada: $CurrentHash"
+
+            $SavedHash = if (Test-Path $DateFile) { Get-Content $DateFile -Raw } else { $null }
+            Write-Log "Hash salvo: $SavedHash"
+
+            if ($CurrentHash -ne $SavedHash -or !(Test-Path $WallpaperCache)) {
+                Write-Log ">>> Nova imagem detectada! Copiando..."
+                Move-Item -Path $TempFile -Destination $WallpaperCache -Force
+                $CurrentHash | Out-File $DateFile -Encoding UTF8 -Force
+                Set-Wallpaper -ImagePath $WallpaperCache
+            } else {
+                Write-Log "Sem alteraes (hash idntico)."
+                Remove-Item -Path $TempFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+    } catch {
+        Write-Log "ERRO CRTICO: $($_.Exception.Message)"
+        if (Test-Path $TempFile) { Remove-Item -Path $TempFile -Force -ErrorAction SilentlyContinue }
+    }
+    Write-Log "=== FIM DO CICLO ==="
+    Start-Sleep -Seconds 600
+}"""
+            
+            with open(os.path.join(base_dir, "WallpaperAgent.ps1"), "w", encoding="utf-8") as f_ps1:
+                f_ps1.write(ps1_content)
+                
+            subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", "Unregister-ScheduledTask -TaskName 'WallpaperAgent' -Confirm:$false -ErrorAction SilentlyContinue"], creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            startup_folder = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup")
+            vbs_path = os.path.join(startup_folder, "WallpaperAgent.vbs")
+            
+            vbs_content = 'Set objShell = CreateObject("WScript.Shell")\n'
+            vbs_content += 'objShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""' + base_dir + '\\WallpaperAgent.ps1""", 0, False\n'
+            
+            with open(vbs_path, "w", encoding="ascii") as f_vbs:
+                f_vbs.write(vbs_content)
+                
+            subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", "Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -match 'WallpaperAgent.ps1' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"], creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            subprocess.Popen(["wscript.exe", vbs_path], creationflags=subprocess.CREATE_NO_WINDOW)
+            
+        except Exception as e:
+            pass
+        sys.exit(0)
+
+    if "--run-wallpulse-uninstall" in sys.argv:
+        try:
+            import os
+            import subprocess
+            import shutil
+            
+            subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", "Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -match 'WallpaperAgent.ps1' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"], creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", "Unregister-ScheduledTask -TaskName 'WallpaperAgent' -Confirm:$false -ErrorAction SilentlyContinue"], creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            startup_folder = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup")
+            vbs_path = os.path.join(startup_folder, "WallpaperAgent.vbs")
+            if os.path.exists(vbs_path):
+                os.remove(vbs_path)
+                
+            base_dir = r"C:\ProgramData\Empresa\WallpaperAgent"
+            if os.path.exists(base_dir):
+                shutil.rmtree(base_dir, ignore_errors=True)
+                
+        except Exception as e:
+            pass
+        sys.exit(0)
+
+    if "--run-inventory" in sys.argv:
+        try:
+            import inventory_module
+            import json
+            config_path = r"C:\ProgramData\ToolsWin\inventory_config.json"
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
+                    cfg = json.load(f)
+                inventory_module.send_heartbeat(cfg.get("API_URL"), cfg.get("AGENT_API_KEY"), cfg.get("EMPRESA_ID"))
+        except Exception as e:
+            pass
+        sys.exit(0)
+        
+    if "--run-clearsite" in sys.argv:
+        try:
+            sys.path.append(get_resource_path("clear_site"))
+            import clear_skychart
+            clear_skychart.main()
+        except Exception as e:
+            pass
+        sys.exit(0)
+
     # Garantir codificação UTF-8 para saídas em lote
     sys.stdout.reconfigure(encoding='utf-8', errors='replace') if hasattr(sys.stdout, 'reconfigure') else None
 
@@ -1773,5 +1926,6 @@ if __name__ == "__main__":
         elevate()
     else:
         root = tk.Tk()
+        sv_ttk.set_theme("dark")
         app = WindowsOptimizerApp(root)
         root.mainloop()

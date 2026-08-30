@@ -49,6 +49,7 @@ def main():
         "--uac-admin",
         "--add-data=logo.png;.",
         "--add-data=favicon.png;.",
+        "--add-data=clear_site\\clear_skychart.py;clear_site",
         "--hidden-import=psutil",
         "--hidden-import=PIL",
         "--hidden-import=requests",
