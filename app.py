@@ -4,22 +4,24 @@ import ctypes
 import subprocess
 import threading
 import json
+import inventory_module
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import psutil
 
-# Cores do Tema Escuro Moderno
-COLOR_BG = "#121214"
-COLOR_SIDEBAR = "#1a1a1e"
-COLOR_CARD = "#202024"
-COLOR_TEXT = "#ffffff"
-COLOR_MUTED = "#8a8a93"
-COLOR_ACCENT = "#3b82f6"       # Azul moderno
-COLOR_SUCCESS = "#10b981"      # Esmeralda
-COLOR_WARNING = "#f59e0b"      # Âmbar
-COLOR_DANGER = "#ef4444"       # Vermelho
-COLOR_BTN_HOVER = "#2563eb"
-COLOR_BTN_BG = "#2a2a30"
+# Cores do Tema (Glary Utilities Palette)
+COLOR_BG = "#f1faee"           # Honeydew
+COLOR_SIDEBAR = "#1d3557"      # Oxford Navy
+COLOR_CARD = "#ffffff"         # White for contrast
+COLOR_TEXT = "#1d3557"         # Dark Navy text for readability
+COLOR_SIDEBAR_TEXT = "#f1faee" # Light text for sidebar
+COLOR_MUTED = "#457b9d"        # Cerulean
+COLOR_ACCENT = "#457b9d"       # Cerulean
+COLOR_SUCCESS = "#a8dadc"      # Frosted Blue / Esmeralda fallback
+COLOR_WARNING = "#f59e0b"      # Mantém
+COLOR_DANGER = "#e63946"       # Punch Red
+COLOR_BTN_HOVER = "#a8dadc"    # Frosted Blue
+COLOR_BTN_BG = "#457b9d"       # Cerulean
 
 def resource_path(relative_path):
     try:
@@ -54,6 +56,9 @@ class WindowsOptimizerApp:
         self.style.configure('TFrame', background=COLOR_BG)
         self.style.configure('Card.TFrame', background=COLOR_CARD, relief='flat')
         self.style.configure('Sidebar.TFrame', background=COLOR_SIDEBAR)
+        self.style.configure('TButton', background=COLOR_BTN_BG, foreground=COLOR_SIDEBAR_TEXT)
+        self.style.map('TButton', background=[('active', COLOR_BTN_HOVER)])
+
         
         # Estilo customizado para Treeview (Tabela de Usuários)
         self.style.configure('Treeview',
@@ -100,8 +105,40 @@ class WindowsOptimizerApp:
             self.admin_group_name = "Administrators"
 
     def create_layout(self):
+        # Top Bar (Toolbar Rápida e Título)
+        self.topbar = ttk.Frame(self.root, style='Sidebar.TFrame', height=40)
+        self.topbar.pack(side='top', fill='x')
+        self.topbar.pack_propagate(False)
+        
+        lbl_top_title = tk.Label(
+            self.topbar, text="Glary Utilities Clone - Tools Win V2", fg=COLOR_SIDEBAR_TEXT, bg=COLOR_SIDEBAR,
+            font=('Segoe UI Semibold', 12)
+        )
+        lbl_top_title.pack(side='left', padx=15, pady=5)
+        
+        # Botões da Barra Superior
+        top_btn_frame = ttk.Frame(self.topbar, style='Sidebar.TFrame')
+        top_btn_frame.pack(side='right', padx=10)
+        for t_label in ["Sobre", "Ajuda", "Opções", "Agendar", "Atualizar"]:
+            b = tk.Button(top_btn_frame, text=t_label, bg=COLOR_SIDEBAR, fg=COLOR_SIDEBAR_TEXT, 
+                          activebackground=COLOR_ACCENT, activeforeground=COLOR_SIDEBAR_TEXT, relief='flat', bd=0, font=('Segoe UI', 9))
+            b.pack(side='right', padx=5, pady=5)
+            b.bind("<Enter>", lambda e, btn=b: btn.configure(bg=COLOR_BTN_HOVER))
+            b.bind("<Leave>", lambda e, btn=b: btn.configure(bg=COLOR_SIDEBAR))
+
+        # Status Bar (Base)
+        self.statusbar = ttk.Frame(self.root, height=30)
+        self.statusbar.pack(side='bottom', fill='x')
+        self.statusbar.pack_propagate(False)
+        
+        lbl_status_ver = tk.Label(self.statusbar, text="Versão 2.0.5", bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI', 9))
+        lbl_status_ver.pack(side='left', padx=10)
+        
+        lbl_status_prot = tk.Label(self.statusbar, text="Status da proteção: Ativada", bg=COLOR_CARD, fg=COLOR_SUCCESS, font=('Segoe UI', 9))
+        lbl_status_prot.pack(side='right', padx=10)
+
         # Sidebar (Esquerda) - Navegação
-        self.sidebar = ttk.Frame(self.root, style='Sidebar.TFrame', width=220)
+        self.sidebar = ttk.Frame(self.root, style='Sidebar.TFrame', width=200)
         self.sidebar.pack(side='left', fill='y')
         self.sidebar.pack_propagate(False)
 
@@ -116,51 +153,36 @@ class WindowsOptimizerApp:
                 lbl_logo = tk.Label(self.sidebar, image=self.logo_img, bg=COLOR_SIDEBAR)
                 lbl_logo.pack(pady=(20, 5))
         except Exception as e:
-            print(f"Erro ao carregar logo na sidebar: {e}")
-
-        # Título da Sidebar
-        title_label = tk.Label(
-            self.sidebar, text="Tools Win V2", fg=COLOR_TEXT, bg=COLOR_SIDEBAR,
-            font=('Segoe UI Semibold', 16), pady=5
-        )
-        title_label.pack(fill='x')
-
-        # Separador na Sidebar
-        sep = tk.Frame(self.sidebar, height=1, bg="#2d2d35")
-        sep.pack(fill='x', padx=15, pady=5)
+            pass
 
         # Botões de Navegação da Sidebar
         self.nav_buttons = {}
         tabs = [
-            ("dashboard", "📊 Painel & Status", self.show_dashboard_tab),
-            ("repair", "🛠 Correção & Reparos", self.show_repair_tab),
-            ("debloat", "🤖 Privacidade & IA", self.show_debloat_tab),
-            ("users", "👥 Contas de Usuários", self.show_users_tab),
-            ("network", "🌐 Ferramentas de Rede", self.show_network_tab),
+            ("dashboard", "Visão Geral", self.show_dashboard_tab),
+            ("1click", "Manutenção em 1 Clique", self.show_1click_tab),
+            ("repair", "Limpeza e Reparo", self.show_repair_tab),
+            ("optimize", "Otimizar e Melhorar", self.show_optimize_tab),
+            ("debloat", "Privacidade e Segurança", self.show_debloat_tab),
+            ("files", "Arquivos e Pastas", self.show_files_tab),
+            ("system", "Ferramentas do Sistema", self.show_network_tab),
+            ("inventory", "Inventário", self.show_inventory_tab),
         ]
 
         for tab_id, label, func in tabs:
             btn = tk.Button(
-                self.sidebar, text=label, anchor='w', bg=COLOR_SIDEBAR, fg=COLOR_TEXT,
-                activebackground=COLOR_ACCENT, activeforeground=COLOR_TEXT,
-                relief='flat', bd=0, font=('Segoe UI', 11), padx=20, pady=10,
+                self.sidebar, text=label, anchor='w', bg=COLOR_SIDEBAR, fg=COLOR_SIDEBAR_TEXT,
+                activebackground=COLOR_ACCENT, activeforeground=COLOR_SIDEBAR_TEXT,
+                relief='flat', bd=0, font=('Segoe UI', 10), padx=20, pady=10,
                 command=lambda f=func, t_id=tab_id: self.select_tab(t_id, f)
             )
-            btn.pack(fill='x', padx=10, pady=2)
+            btn.pack(fill='x', padx=5, pady=2)
             btn.bind("<Enter>", lambda e, b=btn: self.on_btn_hover(b))
             btn.bind("<Leave>", lambda e, b=btn: self.on_btn_leave(b))
             self.nav_buttons[tab_id] = btn
 
-        # Rodapé da Sidebar (Copyright e Versão)
-        lbl_footer = tk.Label(
-            self.sidebar, text="Desenvolvido por Pablo Carvalho\n© 2026 | Versão 2.0.5",
-            fg=COLOR_MUTED, bg=COLOR_SIDEBAR, font=('Segoe UI', 8), justify='center'
-        )
-        lbl_footer.pack(side='bottom', pady=(5, 15))
-
         # Rodapé da Sidebar (Informa se está como Admin)
-        is_adm = is_admin()
-        adm_text = "🛡️ ADMIN" if is_adm else "⚠️ USUÁRIO COMUM"
+        is_adm = is_admin() if 'is_admin' in globals() else False
+        adm_text = "🟢 ADMIN" if is_adm else "🔴 USUÁRIO COMUM"
         adm_color = COLOR_SUCCESS if is_adm else COLOR_WARNING
         
         lbl_adm = tk.Label(
@@ -177,6 +199,94 @@ class WindowsOptimizerApp:
         self.active_tab_id = None
         self.select_tab("dashboard", self.show_dashboard_tab)
 
+
+    def show_1click_tab(self):
+        lbl = tk.Label(self.content_area, text="Manutenção em 1 Clique", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 18, 'bold'))
+        lbl.pack(anchor='w', pady=(0, 20))
+        btn = tk.Button(self.content_area, text="Verificar Agora", bg=COLOR_BTN_BG, fg=COLOR_SIDEBAR_TEXT, font=('Segoe UI', 14, 'bold'), relief='flat', padx=30, pady=10)
+        btn.pack(pady=20)
+        # Checklist
+        for item in ["Limpar registro do Windows", "Reparar atalhos", "Limpar histórico de navegação", "Limpar arquivos temporários"]:
+            cb = tk.Checkbutton(self.content_area, text=item, bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 11), selectcolor=COLOR_BG, activebackground=COLOR_BG, activeforeground=COLOR_TEXT)
+            cb.pack(anchor='w', padx=20, pady=5)
+
+    def show_optimize_tab(self):
+        lbl = tk.Label(self.content_area, text="Otimizar e Melhorar", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 18, 'bold'))
+        lbl.pack(anchor='w', pady=(0, 20))
+        lbl_info = tk.Label(self.content_area, text="Módulos de otimização estarão disponíveis aqui.", bg=COLOR_BG, fg=COLOR_TEXT)
+        lbl_info.pack(anchor='w')
+
+    def show_files_tab(self):
+        lbl = tk.Label(self.content_area, text="Arquivos e Pastas", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 18, 'bold'))
+        lbl.pack(anchor='w', pady=(0, 20))
+        lbl_info = tk.Label(self.content_area, text="Gerenciador de arquivos grandes e duplicados em breve.", bg=COLOR_BG, fg=COLOR_TEXT)
+        lbl_info.pack(anchor='w')
+
+    def show_inventory_tab(self):
+        lbl = tk.Label(self.content_area, text="Integração de Inventário", bg=COLOR_BG, fg=COLOR_TEXT, font=('Segoe UI', 18, 'bold'))
+        lbl.pack(anchor='w', pady=(0, 20))
+
+        # Frame do formulário
+        form_frame = tk.Frame(self.content_area, bg=COLOR_CARD, padx=20, pady=20)
+        form_frame.pack(fill='x', pady=10)
+
+        # Carregar config salva
+        config_path = "inventory_config.json"
+        saved_config = {}
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    saved_config = json.load(f)
+            except:
+                pass
+
+        # API URL
+        tk.Label(form_frame, text="URL da API (VPS):", bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI', 10, 'bold')).grid(row=0, column=0, sticky='w', pady=5)
+        ent_api_url = tk.Entry(form_frame, width=50, font=('Segoe UI', 10))
+        ent_api_url.grid(row=0, column=1, padx=10, pady=5)
+        ent_api_url.insert(0, saved_config.get("API_URL", "http://31.97.251.77:8090"))
+
+        # Empresa ID
+        tk.Label(form_frame, text="ID da Empresa:", bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI', 10, 'bold')).grid(row=1, column=0, sticky='w', pady=5)
+        ent_empresa_id = tk.Entry(form_frame, width=50, font=('Segoe UI', 10))
+        ent_empresa_id.grid(row=1, column=1, padx=10, pady=5)
+        ent_empresa_id.insert(0, saved_config.get("EMPRESA_ID", "4"))
+
+        # Agent API Key
+        tk.Label(form_frame, text="Chave de Comunicação (API Key):", bg=COLOR_CARD, fg=COLOR_TEXT, font=('Segoe UI', 10, 'bold')).grid(row=2, column=0, sticky='w', pady=5)
+        ent_api_key = tk.Entry(form_frame, width=50, font=('Segoe UI', 10))
+        ent_api_key.grid(row=2, column=1, padx=10, pady=5)
+        ent_api_key.insert(0, saved_config.get("AGENT_API_KEY", "kisjanbrh1245ta568ha1"))
+
+        # Botão de Ação
+        def save_and_sync():
+            url = ent_api_url.get().strip()
+            empresa = ent_empresa_id.get().strip()
+            key = ent_api_key.get().strip()
+            
+            # Salvar config
+            with open(config_path, "w") as f:
+                json.dump({"API_URL": url, "EMPRESA_ID": empresa, "AGENT_API_KEY": key}, f)
+
+            btn_sync.config(text="Sincronizando...", state='disabled')
+            
+            def thread_sync():
+                try:
+                    res = inventory_module.send_heartbeat(url, key, empresa)
+                    self.root.after(0, lambda: messagebox.showinfo("Sucesso", "Inventário enviado com sucesso para a API!"))
+                except Exception as e:
+                    self.root.after(0, lambda: messagebox.showerror("Erro de Sincronização", f"Ocorreu um erro ao enviar:\n{e}"))
+                finally:
+                    self.root.after(0, lambda: btn_sync.config(text="Salvar e Sincronizar Agora", state='normal'))
+
+            threading.Thread(target=thread_sync, daemon=True).start()
+
+        btn_sync = tk.Button(self.content_area, text="Salvar e Sincronizar Agora", bg=COLOR_BTN_BG, fg=COLOR_SIDEBAR_TEXT, 
+                             font=('Segoe UI', 12, 'bold'), relief='flat', padx=20, pady=10, command=save_and_sync)
+        btn_sync.pack(pady=20)
+        btn_sync.bind("<Enter>", lambda e: btn_sync.configure(bg=COLOR_BTN_HOVER))
+        btn_sync.bind("<Leave>", lambda e: btn_sync.configure(bg=COLOR_BTN_BG))
+
     def select_tab(self, tab_id, show_func):
         if self.active_tab_id == tab_id:
             return
@@ -187,10 +297,10 @@ class WindowsOptimizerApp:
 
         # Resetar botões de navegação
         for tid, btn in self.nav_buttons.items():
-            btn.configure(bg=COLOR_SIDEBAR, fg=COLOR_TEXT)
+            btn.configure(bg=COLOR_SIDEBAR, fg=COLOR_SIDEBAR_TEXT)
 
         # Destacar o botão ativo
-        self.nav_buttons[tab_id].configure(bg=COLOR_ACCENT, fg=COLOR_TEXT)
+        self.nav_buttons[tab_id].configure(bg=COLOR_ACCENT, fg=COLOR_SIDEBAR_TEXT)
         self.active_tab_id = tab_id
 
         # Carregar a nova aba

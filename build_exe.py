@@ -49,6 +49,9 @@ def main():
         "--uac-admin",
         "--add-data=logo.png;.",
         "--add-data=favicon.png;.",
+        "--hidden-import=psutil",
+        "--hidden-import=PIL",
+        "--hidden-import=requests",
         "--name=Tools Win V2",
         "app.py"
     ]
