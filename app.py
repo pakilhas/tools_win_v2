@@ -689,6 +689,12 @@ class WindowsOptimizerApp:
             ("Agendar CHKDSK", "Examina o disco principal na próxima reinicialização por setores defeituosos.", "chkdsk C: /f /r /x"),
             ("Resetar Windows Update", "Limpa cache, para serviços de update e reinicia o agente.", "reset_update"),
             ("Flush DNS", "Limpa o cache do resolvedor de DNS.", "ipconfig /flushdns")
+            ,
+            ("Limpeza de Disco Avançada", "Aciona a limpeza profunda nativa do sistema.", "cleanmgr /sagerun:1"),
+            ("Otimização de SSD/HDD", "Força o TRIM e a desfragmentação no disco principal.", "defrag C: /O"),
+            ("Limpeza da Pasta Temp", "Apagamento forçado de todo o lixo da pasta Temp local.", r'del /q /f /s "%TEMP%\\*"'),
+            ("Limpar Cache Windows Store", "Resolve problemas de aplicativos travados na loja.", "wsreset.exe"),
+            ("Escanear Malware Rápido", "Aciona o Windows Defender via terminal.", "MpCmdRun.exe -Scan -ScanType 1")
         ]
 
         for i, (name, desc, cmd) in enumerate(rep_tools):
@@ -743,8 +749,27 @@ class WindowsOptimizerApp:
             else:
                 self.log("Operação cancelada pelo usuário.\n")
         else:
-            self.running_thread = threading.Thread(target=self.run_raw_cmd, args=(cmd_key,), daemon=True)
+            self.running_thread = threading.Thread(target=self.run_logged_cmd, args=(cmd_key,), daemon=True)
             self.running_thread.start()
+
+
+    def run_logged_cmd(self, command):
+        import subprocess
+        try:
+            p = subprocess.Popen(
+                command, 
+                shell=True, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT, 
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            for line in p.stdout:
+                self.root.after(0, self.log, line)
+            p.wait()
+            self.root.after(0, self.log, f"\n--- Concluido com codigo {p.returncode} ---\n")
+        except Exception as e:
+            self.root.after(0, self.log, f"\nErro fatal: {e}\n")
 
     def run_raw_cmd(self, command):
         import subprocess
