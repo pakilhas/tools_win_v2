@@ -904,7 +904,7 @@ class WindowsOptimizerApp:
         for key, lbl in self.status_labels.items():
             txt = self.get_status_text(key)
             color = COLOR_SUCCESS if txt in ["Ativo", "Ativos", "Instalado", "Liberado"] else COLOR_DANGER
-            lbl
+            lbl.config(text=txt, foreground=color)
 
     def execute_single_action(self, action_func, key, action_name):
         if not is_admin():
