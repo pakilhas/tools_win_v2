@@ -44,7 +44,6 @@ class WindowsOptimizerApp:
         self.root = root
         self.root.title("Tools Win V2")
         self.root.geometry("1000x650")
-        self.root
         self.root.resizable(True, True)
 
         # Configurar ícone da janela
@@ -133,7 +132,7 @@ class WindowsOptimizerApp:
         # Logo da Sidebar
         try:
             from PIL import Image, ImageTk
-            logo_path = resource_path("logo.png")
+            logo_path = resource_path("favicon.png")
             if os.path.exists(logo_path):
                 img = Image.open(logo_path)
                 img = img.resize((70, 70), Image.Resampling.LANCZOS)
@@ -723,6 +722,14 @@ class WindowsOptimizerApp:
 
         self.text_log.see(tk.END)
         self.text_log.configure(state='disabled')
+
+
+    def log(self, text):
+        if hasattr(self, "text_log"):
+            self.text_log.configure(state="normal")
+            self.text_log.insert("end", text)
+            self.text_log.see("end")
+            self.text_log.configure(state="disabled")
 
     def run_system_tool(self, cmd_key, tool_name):
         if self.running_thread and self.running_thread.is_alive():
